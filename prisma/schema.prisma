@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Recipe {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  prepTime    Int?     // minutes
+  cookTime    Int?     // minutes
+  totalTime   Int?     // minutes
+  servings    Int?
+  difficulty  String?
+  imageUrl    String?
+  sourceUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+
+  ingredients Ingredient[]
+  instructions Instruction[]
+
+  // Performance indexes
+  @@index([userId, createdAt(sort: Desc)]) // For user's recipes sorted by newest
+  @@index([name]) // For recipe name searches
+  @@index([totalTime]) // For filtering by cooking time
+  @@map("recipes")
+}
+
+model Ingredient {
+  id       String @id @default(cuid())
+  recipeId String
+  name     String
+  amount   String?
+  unit     String?
+  order    Int
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([recipeId, order]) // For ordered ingredient queries
+  @@index([name]) // For ingredient name searches
+  @@map("ingredients")
+}
+
+model Instruction {
+  id       String @id @default(cuid())
+  recipeId String
+  step     String
+  order    Int
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([recipeId, order]) // For ordered instruction queries
+  @@map("instructions")
+}
