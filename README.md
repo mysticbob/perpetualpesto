@@ -68,6 +68,117 @@ bun run db:generate
 bun run dev
 ```
 
+## Cold Start Instructions
+
+If you're setting up this project from scratch on a new machine, follow these step-by-step instructions:
+
+### 1. Install Prerequisites
+
+**Install Bun** (JavaScript runtime):
+```bash
+curl -fsSL https://bun.sh/install | bash
+# Restart your terminal or run:
+source ~/.bashrc  # or ~/.zshrc
+```
+
+**Install Docker** (for PostgreSQL database):
+- Download from [docker.com](https://docker.com)
+- Start Docker Desktop and ensure it's running
+
+### 2. Clone and Setup Project
+
+```bash
+# Clone the repository
+git clone git@github.com:mysticbob/perpetualpesto.git
+cd perpetualpesto
+
+# Install all dependencies
+bun install
+```
+
+### 3. Environment Configuration
+
+```bash
+# Copy environment template
+cp .env.example .env
+
+# Edit .env file with your settings (optional for local development)
+# The defaults should work for local development
+```
+
+### 4. Database Setup
+
+```bash
+# Start PostgreSQL in Docker container
+bun run db:up
+
+# Wait for database to be ready (this may take 30-60 seconds)
+bun run wait-for-db
+
+# Create database schema
+bun run db:push
+
+# Generate Prisma client
+bun run db:generate
+```
+
+### 5. Start Development
+
+```bash
+# Start all services (database, backend, frontend)
+bun run dev
+```
+
+The application will be available at:
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:3001
+- **Database**: localhost:5432
+
+### 6. Verify Everything Works
+
+1. Open http://localhost:3000 in your browser
+2. Try extracting a recipe from: `https://www.eatingwell.com/ranch-roasted-chickpeas-11759228`
+3. Check that the recipe appears in your recipe list
+
+### Troubleshooting Cold Start
+
+**Docker not starting?**
+```bash
+# Check if Docker is running
+docker ps
+
+# If not running, start Docker Desktop
+# Then try again: bun run db:up
+```
+
+**Database connection issues?**
+```bash
+# Reset the database completely
+bun run db:down
+bun run db:up
+bun run wait-for-db
+bun run db:push
+```
+
+**Port conflicts?**
+```bash
+# Check what's using the ports
+lsof -i :3000  # Frontend
+lsof -i :3001  # Backend
+lsof -i :5432  # Database
+
+# Kill processes if needed, then restart
+```
+
+**Bun installation issues?**
+```bash
+# Verify Bun is installed correctly
+bun --version
+
+# If not found, reinstall:
+curl -fsSL https://bun.sh/install | bash
+```
+
 ## Available Scripts
 
 ### Development
