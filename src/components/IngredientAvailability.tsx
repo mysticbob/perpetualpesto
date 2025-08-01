@@ -7,7 +7,7 @@ import {
   HStack,
   Badge
 } from '@chakra-ui/react'
-import { CheckIcon } from '@chakra-ui/icons'
+import { CheckIcon, SnowflakeIcon, CloseIcon } from './icons/CustomIcons'
 import { usePantry } from '../contexts/PantryContext'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { formatIngredientAmount } from '../utils/units'
@@ -33,8 +33,36 @@ export default function IngredientAvailability({
   
   console.log(`🎯 Availability check for "${ingredientName}":`, availability)
   
+  // Show red X for items not in pantry
   if (!availability.available) {
-    return null
+    return (
+      <HStack spacing={1}>
+        <Tooltip
+          label={`"${ingredientName}" is not in your pantry`}
+          placement="top"
+          hasArrow
+          bg="red.800"
+          color="white"
+          fontSize="sm"
+          borderRadius="md"
+        >
+          <Box
+            w="20px"
+            h="20px"
+            bg="red.500"
+            borderRadius="full"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            cursor="help"
+            _hover={{ bg: 'red.600' }}
+            transition="background-color 0.2s"
+          >
+            <CloseIcon w="10px" h="10px" color="white" />
+          </Box>
+        </Tooltip>
+      </HStack>
+    )
   }
 
   const tooltipContent = (
@@ -99,31 +127,61 @@ export default function IngredientAvailability({
     </VStack>
   )
 
+  const isFrozen = availability.item?.location === 'freezer'
+
   return (
-    <Tooltip
-      label={tooltipContent}
-      placement="top"
-      hasArrow
-      bg="gray.800"
-      color="white"
-      fontSize="sm"
-      borderRadius="md"
-      p={0}
-    >
-      <Box
-        w="20px"
-        h="20px"
-        bg="green.500"
-        borderRadius="full"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-        cursor="help"
-        _hover={{ bg: 'green.600' }}
-        transition="background-color 0.2s"
+    <HStack spacing={1}>
+      <Tooltip
+        label={tooltipContent}
+        placement="top"
+        hasArrow
+        bg="gray.800"
+        color="white"
+        fontSize="sm"
+        borderRadius="md"
+        p={0}
       >
-        <CheckIcon w="12px" h="12px" color="white" />
-      </Box>
-    </Tooltip>
+        <Box
+          w="20px"
+          h="20px"
+          bg="green.500"
+          borderRadius="full"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          cursor="help"
+          _hover={{ bg: 'green.600' }}
+          transition="background-color 0.2s"
+        >
+          <CheckIcon w="12px" h="12px" color="white" />
+        </Box>
+      </Tooltip>
+      
+      {isFrozen && (
+        <Tooltip
+          label="This item is in your freezer"
+          placement="top"
+          hasArrow
+          bg="blue.800"
+          color="white"
+          fontSize="sm"
+        >
+          <Box
+            w="20px"
+            h="20px"
+            bg="blue.500"
+            borderRadius="full"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            cursor="help"
+            _hover={{ bg: 'blue.600' }}
+            transition="background-color 0.2s"
+          >
+            <SnowflakeIcon w="12px" h="12px" color="white" />
+          </Box>
+        </Tooltip>
+      )}
+    </HStack>
   )
 }

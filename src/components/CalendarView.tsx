@@ -22,10 +22,19 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  ModalCloseButton
+  ModalCloseButton,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Select,
+  List,
+  ListItem,
+  useToast,
+  Spinner,
+  Center
 } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
-import { ChevronLeftIcon, ChevronRightIcon, AddIcon, CalendarIcon, EditIcon, DeleteIcon, SettingsIcon } from '@chakra-ui/icons'
+import { ChevronLeftIcon, ChevronRightIcon, AddIcon, CalendarIcon, EditIcon, DeleteIcon, SettingsIcon, SearchIcon, BreakfastIcon, LunchIcon, DinnerIcon } from './icons/CustomIcons'
 
 interface MealPlan {
   id: string
@@ -60,12 +69,30 @@ interface CalendarViewProps {
 const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
+// API response interface for recipes
+interface PaginatedResponse {
+  recipes: Recipe[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    pages: number
+  }
+}
+
 export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date())
   const [availableRecipes, setAvailableRecipes] = useState<Recipe[]>([])
-  const [loadingRecipes, setLoadingRecipes] = useState(false)
+  const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null)
+  const [selectedMealType, setSelectedMealType] = useState<'breakfast' | 'lunch' | 'dinner' | ''>('')
+  const [loadingRecipes, setLoadingRecipes] = useState(true)
+  const [draggedMeal, setDraggedMeal] = useState<string | null>(null)
+  const [dragOverSection, setDragOverSection] = useState<string | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const toast = useToast()
   
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([
     {
@@ -123,23 +150,37 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
           cookTime: 60,
           servings: 8,
           description: 'Spicy vegetarian chili'
+        },
+        {
+          id: '5',
+          recipeId: 'recipe-6',
+          name: 'Greek Salad',
+          imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400',
+          prepTime: 15,
+          servings: 4,
+          description: 'Fresh Mediterranean salad'
         }
       ]
     }
   ])
 
-  // Load available recipes for adding to meal plan
+  // Fetch user's actual recipes from API
   useEffect(() => {
     const fetchRecipes = async () => {
       setLoadingRecipes(true)
       try {
-        const response = await fetch('/api/recipes')
+        const response = await fetch('/api/recipes?limit=100')
         if (response.ok) {
-          const recipes = await response.json()
-          setAvailableRecipes(recipes)
+          const data: PaginatedResponse = await response.json()
+          setAvailableRecipes(data.recipes || [])
+          console.log(`Loaded ${data.recipes?.length || 0} recipes from API`)
+        } else {
+          console.error('Failed to fetch recipes:', response.status, response.statusText)
+          // Keep recipes as empty array but show error message
         }
       } catch (error) {
         console.error('Failed to fetch recipes:', error)
+        // Network error - keep recipes as empty array
       } finally {
         setLoadingRecipes(false)
       }
@@ -147,14 +188,28 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
     
     fetchRecipes()
   }, [])
+
+  // Filter recipes based on search query
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredRecipes(availableRecipes)
+    } else {
+      const query = searchQuery.toLowerCase()
+      const filtered = availableRecipes.filter(recipe => 
+        recipe.name.toLowerCase().includes(query) ||
+        recipe.description?.toLowerCase().includes(query)
+      )
+      setFilteredRecipes(filtered)
+    }
+  }, [searchQuery, availableRecipes])
   
-  const bgColor = useColorModeValue('white', 'gray.800')
+  const bgColor = useColorModeValue('#ffffff', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
   const mutedColor = useColorModeValue('gray.500', 'gray.400')
-  const selectedBg = useColorModeValue('red.500', 'red.600')
+  const selectedBg = '#38BDAF' // Ovie brand teal
   const cardBg = useColorModeValue('white', 'gray.700')
-  const todayBg = useColorModeValue('blue.50', 'blue.900')
-  const todayBorder = useColorModeValue('blue.200', 'blue.600')
+  const todayBg = useColorModeValue('#38BDAF10', '#38BDAF20') // Light teal background
+  const todayBorder = '#38BDAF'
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear()
@@ -176,23 +231,24 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
     return mealPlan?.meals || []
   }
 
-  const addMealToPlan = (recipeId: string, mealType: 'breakfast' | 'lunch' | 'dinner') => {
-    if (!selectedDate) return
-    
-    const recipe = availableRecipes.find(r => r.id === recipeId)
-    if (!recipe) return
+  const selectRecipe = (recipe: Recipe) => {
+    setSelectedRecipe(recipe)
+  }
+
+  const addMealToPlan = () => {
+    if (!selectedDate || !selectedRecipe) return
 
     const dateStr = selectedDate.toISOString().split('T')[0]
     const newMeal = {
       id: Date.now().toString(),
-      recipeId: recipe.id,
-      name: recipe.name,
-      type: mealType,
-      imageUrl: recipe.imageUrl,
-      prepTime: recipe.prepTime,
-      cookTime: recipe.cookTime,
-      servings: recipe.servings,
-      description: recipe.description
+      recipeId: selectedRecipe.id,
+      name: selectedRecipe.name,
+      type: selectedMealType as 'breakfast' | 'lunch' | 'dinner',
+      imageUrl: selectedRecipe.imageUrl,
+      prepTime: selectedRecipe.prepTime,
+      cookTime: selectedRecipe.cookTime,
+      servings: selectedRecipe.servings,
+      description: selectedRecipe.description
     }
 
     setMealPlans(prev => {
@@ -212,6 +268,24 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
       }
     })
     
+    toast({
+      title: 'Recipe added!',
+      description: `${selectedRecipe.name} added to ${selectedMealType || 'your day'}`,
+      status: 'success',
+      duration: 3000,
+    })
+    
+    // Reset and close
+    setSelectedRecipe(null)
+    setSelectedMealType('')
+    setSearchQuery('')
+    onClose()
+  }
+
+  const handleModalClose = () => {
+    setSelectedRecipe(null)
+    setSelectedMealType('')
+    setSearchQuery('')
     onClose()
   }
 
@@ -226,13 +300,70 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
     ))
   }
 
+  const handleDragStart = (e: React.DragEvent, mealId: string) => {
+    setDraggedMeal(mealId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragEnd = () => {
+    setDraggedMeal(null)
+    setDragOverSection(null)
+  }
+
+  const handleDragOver = (e: React.DragEvent, sectionType: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverSection(sectionType)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverSection(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetMealType: 'breakfast' | 'lunch' | 'dinner' | 'today') => {
+    e.preventDefault()
+    if (!draggedMeal || !selectedDate) return
+
+    const dateStr = selectedDate.toISOString().split('T')[0]
+    
+    setMealPlans(prev => prev.map(plan => {
+      if (plan.date === dateStr) {
+        return {
+          ...plan,
+          meals: plan.meals.map(meal => {
+            if (meal.id === draggedMeal) {
+              return {
+                ...meal,
+                type: targetMealType === 'today' ? undefined : targetMealType
+              } as any
+            }
+            return meal
+          })
+        }
+      }
+      return plan
+    }))
+
+    toast({
+      title: 'Recipe moved!',
+      description: `Recipe moved to ${targetMealType === 'today' ? 'Today' : targetMealType}`,
+      status: 'success',
+      duration: 2000,
+    })
+
+    setDraggedMeal(null)
+    setDragOverSection(null)
+  }
+
   const isToday = (date: Date) => {
     const today = new Date()
     return date.toDateString() === today.toDateString()
   }
 
   const goToToday = () => {
-    setCurrentDate(new Date())
+    const today = new Date()
+    setCurrentDate(today)
+    setSelectedDate(today)
   }
 
   const days = getDaysInMonth(currentDate)
@@ -246,16 +377,17 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
             <IconButton
               aria-label="Previous month"
               icon={<ChevronLeftIcon />}
-              size="sm"
+              size="md"
               variant="ghost"
+              colorScheme="teal"
               onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}
             />
             <VStack spacing={1}>
               <Heading size="md">Calendar</Heading>
               <Button
-                size="xs"
+                size="sm"
                 variant="ghost"
-                colorScheme="blue"
+                style={{ color: selectedBg }}
                 onClick={goToToday}
               >
                 Go to Today
@@ -264,8 +396,9 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
             <IconButton
               aria-label="Next month"
               icon={<ChevronRightIcon />}
-              size="sm"
+              size="md"
               variant="ghost"
+              colorScheme="teal"
               onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}
             />
           </HStack>
@@ -293,44 +426,35 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                   onClick={() => setSelectedDate(date)}
                 >
                   <HStack justify="space-between" align="center" mb={2}>
-                    <VStack align="start" spacing={0}>
+                    <HStack spacing={2}>
                       <Text 
                         fontSize="2xl" 
                         fontWeight="bold"
-                        color={selectedDate && selectedDate.toDateString() === date.toDateString() ? selectedBg : isTodayDate ? 'blue.600' : 'inherit'}
+                        color={selectedDate && selectedDate.toDateString() === date.toDateString() ? selectedBg : isTodayDate ? selectedBg : 'inherit'}
                       >
                         {date.getDate().toString().padStart(2, '0')}
                       </Text>
-                      <Text 
-                        fontSize="xs" 
-                        color={isTodayDate ? 'blue.600' : mutedColor} 
-                        textTransform="uppercase"
-                        fontWeight={isTodayDate ? 'semibold' : 'normal'}
-                      >
-                        {daysOfWeek[date.getDay()]}
-                      </Text>
-                      <Text 
-                        fontSize="xs" 
-                        color={isTodayDate ? 'blue.600' : mutedColor} 
-                        textTransform="uppercase"
-                        fontWeight={isTodayDate ? 'semibold' : 'normal'}
-                      >
-                        {months[date.getMonth()].slice(0, 3)}
-                      </Text>
-                    </VStack>
-                    
-                    <IconButton
-                      aria-label="Add meal"
-                      icon={<AddIcon />}
-                      size="sm"
-                      variant="ghost"
-                      colorScheme="red"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelectedDate(date)
-                        onOpen()
-                      }}
-                    />
+                      <VStack align="start" spacing={0}>
+                        <Text 
+                          fontSize="xs" 
+                          color={isTodayDate ? selectedBg : mutedColor} 
+                          textTransform="uppercase"
+                          fontWeight={isTodayDate ? 'semibold' : 'normal'}
+                          lineHeight="1"
+                        >
+                          {daysOfWeek[date.getDay()].slice(0, 3)}
+                        </Text>
+                        <Text 
+                          fontSize="xs" 
+                          color={isTodayDate ? selectedBg : mutedColor} 
+                          textTransform="uppercase"
+                          fontWeight={isTodayDate ? 'semibold' : 'normal'}
+                          lineHeight="1"
+                        >
+                          {months[date.getMonth()].slice(0, 3)}
+                        </Text>
+                      </VStack>
+                    </HStack>
                   </HStack>
 
                   <VStack spacing={2} align="start" w="full">
@@ -342,13 +466,13 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                         onClick={() => onRecipeSelect(meal.recipeId)}
                         w="full"
                       >
-                        <Box
-                          w="3"
-                          h="3"
-                          borderRadius="full"
-                          bg={meal.type === 'breakfast' ? 'yellow.400' : 
-                              meal.type === 'lunch' ? 'blue.400' : 'red.400'}
-                        />
+                        {meal.type === 'breakfast' ? (
+                          <BreakfastIcon w="3" h="3" />
+                        ) : meal.type === 'lunch' ? (
+                          <LunchIcon w="3" h="3" />
+                        ) : (
+                          <DinnerIcon w="3" h="3" />
+                        )}
                         <Text fontSize="sm" flex={1}>
                           {meal.name}
                         </Text>
@@ -375,9 +499,10 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                 })}
               </Heading>
               <Button 
-                size="sm" 
+                size="md" 
                 leftIcon={<AddIcon />} 
-                colorScheme="blue"
+                style={{ backgroundColor: selectedBg, color: 'white' }}
+                _hover={{ backgroundColor: '#2da89c' }}
                 onClick={onOpen}
               >
                 Add Recipe
@@ -386,37 +511,82 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
 
             <Divider />
 
-            {/* Meal Times */}
-            {(['breakfast', 'lunch', 'dinner'] as const).map((mealType) => {
-              const mealsForType = getMealsForDate(selectedDate).filter(meal => meal.type === mealType)
-              const mealColor = mealType === 'breakfast' ? 'yellow' : 
-                              mealType === 'lunch' ? 'blue' : 'red'
-              
-              return (
-                <Box key={mealType} w="full">
+            {/* Meal Times + Today Section */}
+            {(() => {
+              const allMeals = getMealsForDate(selectedDate)
+              const mealsWithoutType = allMeals.filter(meal => !meal.type)
+              const sections = [
+                ...(['breakfast', 'lunch', 'dinner'] as const).map(mealType => ({
+                  type: mealType,
+                  name: mealType,
+                  meals: allMeals.filter(meal => meal.type === mealType),
+                  color: mealType === 'breakfast' ? '#ffb503' : 
+                         mealType === 'lunch' ? selectedBg : '#d72c0d'
+                })),
+                ...(mealsWithoutType.length > 0 ? [{
+                  type: 'today' as const,
+                  name: 'today',
+                  meals: mealsWithoutType,
+                  color: '#38BDAF'
+                }] : [])
+              ]
+
+              return sections.map((section) => (
+                <Box 
+                  key={section.type} 
+                  w="full"
+                  onDragOver={(e) => handleDragOver(e, section.type)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, section.type as any)}
+                  bg={dragOverSection === section.type ? `${section.color}15` : 'transparent'}
+                  borderRadius="md"
+                  p={dragOverSection === section.type ? 2 : 0}
+                  border={dragOverSection === section.type ? '2px dashed' : '2px solid transparent'}
+                  borderColor={dragOverSection === section.type ? section.color : 'transparent'}
+                  transition="all 0.2s"
+                >
                   <HStack spacing={3} mb={4}>
-                    <Box
-                      w="4"
-                      h="4"
-                      borderRadius="full"
-                      bg={`${mealColor}.400`}
-                    />
+                    {section.type === 'breakfast' ? (
+                      <BreakfastIcon w="5" h="5" />
+                    ) : section.type === 'lunch' ? (
+                      <LunchIcon w="5" h="5" />
+                    ) : section.type === 'dinner' ? (
+                      <DinnerIcon w="5" h="5" />
+                    ) : (
+                      <CalendarIcon w="5" h="5" />
+                    )}
                     <Heading size="md" textTransform="capitalize">
-                      {mealType}
+                      {section.name}
                     </Heading>
                     <Badge colorScheme="gray" size="sm">
-                      {mealsForType.length} {mealsForType.length === 1 ? 'recipe' : 'recipes'}
+                      {section.meals.length} {section.meals.length === 1 ? 'recipe' : 'recipes'}
                     </Badge>
                   </HStack>
 
-                  {mealsForType.length === 0 ? (
+                  {section.meals.length === 0 ? (
                     <Text color={mutedColor} fontSize="sm" ml={7} mb={4}>
                       No recipes planned
                     </Text>
                   ) : (
                     <VStack spacing={3} align="start" w="full" mb={4}>
-                      {mealsForType.map((meal) => (
-                        <Card key={meal.id} size="sm" w="full">
+                      {section.meals.map((meal) => (
+                        <Card 
+                          key={meal.id} 
+                          size="sm" 
+                          w="full"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, meal.id)}
+                          onDragEnd={handleDragEnd}
+                          cursor="grab"
+                          _active={{ cursor: 'grabbing' }}
+                          opacity={draggedMeal === meal.id ? 0.5 : 1}
+                          transform={draggedMeal === meal.id ? 'rotate(5deg)' : 'none'}
+                          transition="all 0.2s"
+                          _hover={{ 
+                            shadow: 'md',
+                            transform: draggedMeal === meal.id ? 'rotate(5deg)' : 'translateY(-2px)'
+                          }}
+                        >
                           <CardBody>
                             <HStack spacing={4} align="start">
                               {meal.imageUrl && (
@@ -457,22 +627,25 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                                 <IconButton
                                   aria-label="Adjust recipe"
                                   icon={<SettingsIcon />}
-                                  size="xs"
+                                  size="sm"
                                   variant="ghost"
+                                  colorScheme="teal"
                                   onClick={() => onRecipeSelect(meal.recipeId)}
                                 />
                                 <IconButton
                                   aria-label="Groceries"
                                   icon={<EditIcon />}
-                                  size="xs"
+                                  size="sm"
                                   variant="ghost"
+                                  colorScheme="teal"
                                 />
                                 <IconButton
                                   aria-label="Remove recipe"
                                   icon={<DeleteIcon />}
-                                  size="xs"
+                                  size="sm"
                                   variant="ghost"
-                                  colorScheme="red"
+                                  style={{ color: '#d72c0d' }}
+                                  _hover={{ backgroundColor: '#d72c0d20' }}
                                   onClick={() => removeMealFromPlan(meal.id)}
                                 />
                               </VStack>
@@ -483,8 +656,8 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                     </VStack>
                   )}
                 </Box>
-              )
-            })}
+              ))
+            })()}
           </VStack>
         ) : (
           <VStack spacing={4} align="center" justify="center" h="full">
@@ -504,50 +677,167 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
           <ModalCloseButton />
           
           <ModalBody>
-            <VStack spacing={4} align="start">
-              <Text>Choose a meal time and recipe:</Text>
-              
-              {(['breakfast', 'lunch', 'dinner'] as const).map((mealType) => (
-                <Box key={mealType} w="full">
-                  <HStack spacing={3} mb={3}>
-                    <Box
-                      w="3"
-                      h="3"
-                      borderRadius="full"
-                      bg={mealType === 'breakfast' ? 'yellow.400' : 
-                          mealType === 'lunch' ? 'blue.400' : 'red.400'}
-                    />
-                    <Heading size="sm" textTransform="capitalize">
-                      {mealType}
-                    </Heading>
-                  </HStack>
-                  
-                  <SimpleGrid columns={1} spacing={2} ml={6}>
-                    {loadingRecipes ? (
-                      <Text fontSize="sm" color={mutedColor}>Loading recipes...</Text>
-                    ) : availableRecipes.length === 0 ? (
-                      <Text fontSize="sm" color={mutedColor}>No recipes available</Text>
-                    ) : (
-                      availableRecipes.slice(0, 3).map((recipe) => (
-                        <Button
-                          key={recipe.id}
-                          variant="ghost"
-                          size="sm"
-                          justifyContent="start"
-                          onClick={() => addMealToPlan(recipe.id, mealType)}
-                        >
-                          {recipe.name}
-                        </Button>
-                      ))
-                    )}
-                  </SimpleGrid>
+            {!selectedRecipe ? (
+              <VStack spacing={4} align="start">
+                <Text>Search and select a recipe to add:</Text>
+                
+                {/* Search Box */}
+                <InputGroup>
+                  <InputLeftElement pointerEvents="none">
+                    <SearchIcon color={mutedColor} />
+                  </InputLeftElement>
+                  <Input
+                    placeholder="Search recipes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    focusBorderColor={selectedBg}
+                  />
+                </InputGroup>
+                
+                {/* Recipe List */}
+                <Box maxH="400px" overflowY="auto" w="full">
+                  {loadingRecipes ? (
+                    <Center py={8}>
+                      <VStack spacing={2}>
+                        <Spinner color={selectedBg} />
+                        <Text color={mutedColor} fontSize="sm">Loading your recipes...</Text>
+                      </VStack>
+                    </Center>
+                  ) : filteredRecipes.length === 0 ? (
+                    <VStack spacing={3} py={8}>
+                      <Text color={mutedColor} textAlign="center">
+                        {searchQuery ? `No recipes found for "${searchQuery}"` : 'No recipes found'}
+                      </Text>
+                      {!searchQuery && (
+                        <Text fontSize="sm" color={mutedColor} textAlign="center">
+                          Add recipes by going to "Add Recipe" in the sidebar, then come back here to plan your meals!
+                        </Text>
+                      )}
+                    </VStack>
+                  ) : (
+                    <List spacing={3}>
+                      {filteredRecipes.map((recipe) => (
+                        <ListItem key={recipe.id}>
+                          <Card 
+                            variant="outline" 
+                            cursor="pointer"
+                            onClick={() => selectRecipe(recipe)}
+                            _hover={{ borderColor: selectedBg, shadow: 'md' }}
+                            transition="all 0.2s"
+                          >
+                            <CardBody p={4}>
+                              <HStack spacing={4}>
+                                {recipe.imageUrl && (
+                                  <Image
+                                    src={recipe.imageUrl}
+                                    alt={recipe.name}
+                                    w="60px"
+                                    h="60px"
+                                    objectFit="cover"
+                                    borderRadius="md"
+                                  />
+                                )}
+                                <VStack align="start" spacing={1} flex={1}>
+                                  <Text fontWeight="bold" fontSize="md">
+                                    {recipe.name}
+                                  </Text>
+                                  {recipe.description && (
+                                    <Text fontSize="sm" color={mutedColor} noOfLines={2}>
+                                      {recipe.description}
+                                    </Text>
+                                  )}
+                                  <HStack spacing={2}>
+                                    {recipe.prepTime && (
+                                      <Badge size="sm" colorScheme="blue">
+                                        {recipe.prepTime}m prep
+                                      </Badge>
+                                    )}
+                                    {recipe.servings && (
+                                      <Badge size="sm" colorScheme="green">
+                                        Serves {recipe.servings}
+                                      </Badge>
+                                    )}
+                                  </HStack>
+                                </VStack>
+                              </HStack>
+                            </CardBody>
+                          </Card>
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
                 </Box>
-              ))}
-            </VStack>
+              </VStack>
+            ) : (
+              <VStack spacing={4} align="start">
+                <Text>Selected Recipe:</Text>
+                
+                {/* Selected Recipe Preview */}
+                <Card variant="outline" w="full">
+                  <CardBody>
+                    <HStack spacing={4}>
+                      {selectedRecipe.imageUrl && (
+                        <Image
+                          src={selectedRecipe.imageUrl}
+                          alt={selectedRecipe.name}
+                          w="80px"
+                          h="80px"
+                          objectFit="cover"
+                          borderRadius="md"
+                        />
+                      )}
+                      <VStack align="start" spacing={1} flex={1}>
+                        <Text fontWeight="bold" fontSize="lg">
+                          {selectedRecipe.name}
+                        </Text>
+                        {selectedRecipe.description && (
+                          <Text fontSize="sm" color={mutedColor}>
+                            {selectedRecipe.description}
+                          </Text>
+                        )}
+                      </VStack>
+                    </HStack>
+                  </CardBody>
+                </Card>
+                
+                {/* Meal Type Selection */}
+                <VStack align="start" spacing={2} w="full">
+                  <Text fontWeight="medium">Choose meal type (optional):</Text>
+                  <Select
+                    placeholder="Select meal type or leave blank for 'Today'"
+                    value={selectedMealType}
+                    onChange={(e) => setSelectedMealType(e.target.value as any)}
+                    focusBorderColor={selectedBg}
+                  >
+                    <option value="breakfast">☕ Breakfast</option>
+                    <option value="lunch">🍽️ Lunch</option>
+                    <option value="dinner">🍴 Dinner</option>
+                  </Select>
+                  <Text fontSize="xs" color={mutedColor}>
+                    💡 Leave blank to add to a general "Today" section
+                  </Text>
+                </VStack>
+              </VStack>
+            )}
           </ModalBody>
 
           <ModalFooter>
-            <Button onClick={onClose}>Close</Button>
+            {selectedRecipe ? (
+              <>
+                <Button variant="ghost" mr={3} onClick={() => setSelectedRecipe(null)}>
+                  Back
+                </Button>
+                <Button 
+                  style={{ backgroundColor: selectedBg, color: 'white' }}
+                  _hover={{ backgroundColor: '#2da89c' }}
+                  onClick={addMealToPlan}
+                >
+                  Add Recipe
+                </Button>
+              </>
+            ) : (
+              <Button onClick={handleModalClose}>Close</Button>
+            )}
           </ModalFooter>
         </ModalContent>
       </Modal>

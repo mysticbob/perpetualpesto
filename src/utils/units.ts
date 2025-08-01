@@ -1,133 +1,222 @@
-export type UnitSystem = 'metric' | 'imperial'
+import { Fraction } from 'fraction.js'
+import convert from 'convert'
+import culinaryUnitAbbreviation from 'culinary-unit-abbreviation'
 
-interface UnitConversion {
-  metric: string
-  imperial: string
-  ratio?: number // metric to imperial ratio
+export type UnitSystem = "metric" | "imperial"
+
+// Enhanced fraction parser using fraction.js for precision
+function parseFraction(amount: string): number {
+  if (!amount || typeof amount !== 'string') return 0
+  
+  try {
+    const cleanAmount = amount.trim()
+    
+    // Use fraction.js to handle all fraction formats
+    const fraction = new Fraction(cleanAmount)
+    return fraction.valueOf()
+  } catch (error) {
+    // Fallback to parseFloat for simple numbers
+    const numericValue = parseFloat(amount)
+    return isNaN(numericValue) ? 0 : numericValue
+  }
 }
 
-const unitConversions: Record<string, UnitConversion> = {
-  // Weight
-  'g': { metric: 'g', imperial: 'oz', ratio: 0.035274 },
-  'gram': { metric: 'g', imperial: 'oz', ratio: 0.035274 },
-  'grams': { metric: 'g', imperial: 'oz', ratio: 0.035274 },
-  'kg': { metric: 'kg', imperial: 'lb', ratio: 2.20462 },
-  'kilogram': { metric: 'kg', imperial: 'lb', ratio: 2.20462 },
-  'kilograms': { metric: 'kg', imperial: 'lb', ratio: 2.20462 },
-  'oz': { metric: 'g', imperial: 'oz', ratio: 1/0.035274 },
-  'ounce': { metric: 'g', imperial: 'oz', ratio: 1/0.035274 },
-  'ounces': { metric: 'g', imperial: 'oz', ratio: 1/0.035274 },
-  'lb': { metric: 'kg', imperial: 'lb', ratio: 1/2.20462 },
-  'pound': { metric: 'kg', imperial: 'lb', ratio: 1/2.20462 },
-  'pounds': { metric: 'kg', imperial: 'lb', ratio: 1/2.20462 },
+// Standardize unit names using culinary-unit-abbreviation
+function standardizeUnit(unit: string): string {
+  if (!unit) return ''
   
-  // Volume
-  'ml': { metric: 'ml', imperial: 'fl oz', ratio: 0.033814 },
-  'milliliter': { metric: 'ml', imperial: 'fl oz', ratio: 0.033814 },
-  'milliliters': { metric: 'ml', imperial: 'fl oz', ratio: 0.033814 },
-  'l': { metric: 'l', imperial: 'qt', ratio: 1.05669 },
-  'liter': { metric: 'l', imperial: 'qt', ratio: 1.05669 },
-  'liters': { metric: 'l', imperial: 'qt', ratio: 1.05669 },
-  'cup': { metric: 'ml', imperial: 'cup', ratio: 1/0.004227 },
-  'cups': { metric: 'ml', imperial: 'cup', ratio: 1/0.004227 },
-  
-  // Temperature
-  'c': { metric: '°C', imperial: '°F' },
-  'celsius': { metric: '°C', imperial: '°F' },
-  'f': { metric: '°C', imperial: '°F' },
-  'fahrenheit': { metric: '°C', imperial: '°F' },
-  
-  // Common cooking units (no conversion needed)
-  'tbsp': { metric: 'tbsp', imperial: 'tbsp' },
-  'tablespoon': { metric: 'tbsp', imperial: 'tbsp' },
-  'tablespoons': { metric: 'tbsp', imperial: 'tbsp' },
-  'tsp': { metric: 'tsp', imperial: 'tsp' },
-  'teaspoon': { metric: 'tsp', imperial: 'tsp' },
-  'teaspoons': { metric: 'tsp', imperial: 'tsp' },
-  'clove': { metric: 'clove', imperial: 'clove' },
-  'cloves': { metric: 'cloves', imperial: 'cloves' },
-  'can': { metric: 'can', imperial: 'can' },
-  'cans': { metric: 'cans', imperial: 'cans' },
-  'piece': { metric: 'piece', imperial: 'piece' },
-  'pieces': { metric: 'pieces', imperial: 'pieces' }
+  try {
+    // Use the culinary unit abbreviation library to standardize
+    return culinaryUnitAbbreviation(unit) || unit.toLowerCase().trim()
+  } catch (error) {
+    return unit.toLowerCase().trim()
+  }
 }
 
-export function convertUnit(amount: string, unit: string, targetSystem: UnitSystem): { amount: string, unit: string } {
+// Map standardized cooking units to convert library format
+function mapToConvertFormat(unit: string): string | null {
+  if (!unit) return null
+  
+  const standardUnit = standardizeUnit(unit)
+  
+  // Volume conversions for convert library
+  const volumeMap: Record<string, string> = {
+    'tsp': 'teaspoon',
+    'tbsp': 'tablespoon',
+    'cup': 'cup',
+    'fl oz': 'fluid-ounce',
+    'pt': 'pint',
+    'qt': 'quart', 
+    'gal': 'gallon',
+    'ml': 'millilitre',
+    'l': 'litre'
+  }
+  
+  // Weight conversions for convert library  
+  const weightMap: Record<string, string> = {
+    'oz': 'ounce',
+    'lb': 'pound',
+    'g': 'gram',
+    'kg': 'kilogram'
+  }
+  
+  // Check mappings
+  if (volumeMap[standardUnit]) return volumeMap[standardUnit]
+  if (weightMap[standardUnit]) return weightMap[standardUnit]
+  
+  return null
+}
+
+// Determine preferred unit for metric/imperial system
+function getPreferredUnit(measure: string, targetSystem: UnitSystem): string {
+  if (measure === 'volume') {
+    if (targetSystem === 'metric') {
+      return 'millilitre' // Prefer ml for cooking
+    } else {
+      return 'cup' // Prefer cups for imperial cooking
+    }
+  }
+  
+  if (measure === 'mass') {
+    if (targetSystem === 'metric') {
+      return 'gram' // Prefer grams for cooking
+    } else {
+      return 'ounce' // Prefer ounces for imperial
+    }
+  }
+  
+  return 'gram' // fallback
+}
+
+export function convertUnit(
+  amount: string,
+  unit: string,
+  targetSystem: UnitSystem
+): { amount: string; unit: string } {
+  
   if (!amount || !unit) {
+    return { amount: amount || '', unit: unit || '' }
+  }
+
+  // Parse the amount (including fractions)
+  const numericAmount = parseFraction(amount)
+  if (numericAmount === 0 && amount !== '0') {
+    return { amount, unit } // Return original if parsing failed
+  }
+
+  // Map to convert library format
+  const convertUnitFormat = mapToConvertFormat(unit)
+  if (!convertUnitFormat) {
+    // Unit not supported, return as-is
     return { amount, unit }
   }
 
-  const normalizedUnit = unit.toLowerCase().trim()
-  const conversion = unitConversions[normalizedUnit]
-  
-  if (!conversion) {
-    // If we don't know how to convert this unit, return as-is
-    return { amount, unit }
+  try {
+    // Create converter instance
+    const converter = convert(numericAmount, convertUnitFormat)
+    
+    // Determine what type of measurement this is
+    const measure = converter.measure
+    
+    // Determine target unit based on system preference
+    const preferredUnit = getPreferredUnit(measure, targetSystem)
+    
+    // Convert to preferred unit
+    const converted = converter.to(preferredUnit)
+    
+    // Format the result nicely
+    const formattedAmount = formatNumber(converted)
+    const displayUnit = getDisplayUnit(preferredUnit)
+    
+    return { amount: formattedAmount, unit: displayUnit }
+    
+  } catch (error) {
+    console.warn(`Conversion failed for ${amount} ${unit}:`, error)
   }
 
-  // If already in target system, return as-is
-  const currentUnit = targetSystem === 'metric' ? conversion.metric : conversion.imperial
-  if (normalizedUnit === currentUnit.toLowerCase()) {
-    return { amount, unit: currentUnit }
-  }
-
-  // Handle temperature conversion separately
-  if (normalizedUnit === 'c' || normalizedUnit === 'celsius' || normalizedUnit === 'f' || normalizedUnit === 'fahrenheit') {
-    const numAmount = parseFloat(amount)
-    if (isNaN(numAmount)) return { amount, unit }
-    
-    if (targetSystem === 'imperial' && (normalizedUnit === 'c' || normalizedUnit === 'celsius')) {
-      const fahrenheit = (numAmount * 9/5) + 32
-      return { amount: Math.round(fahrenheit).toString(), unit: '°F' }
-    } else if (targetSystem === 'metric' && (normalizedUnit === 'f' || normalizedUnit === 'fahrenheit')) {
-      const celsius = (numAmount - 32) * 5/9
-      return { amount: Math.round(celsius).toString(), unit: '°C' }
-    }
-  }
-
-  // Handle weight/volume conversions
-  if (conversion.ratio) {
-    const numAmount = parseFloat(amount)
-    if (isNaN(numAmount)) return { amount, unit }
-    
-    let convertedAmount: number
-    const targetUnit = targetSystem === 'metric' ? conversion.metric : conversion.imperial
-    
-    // Determine if we're converting to or from metric
-    const isCurrentlyMetric = normalizedUnit === conversion.metric.toLowerCase()
-    
-    if (targetSystem === 'imperial' && isCurrentlyMetric) {
-      convertedAmount = numAmount * conversion.ratio
-    } else if (targetSystem === 'metric' && !isCurrentlyMetric) {
-      convertedAmount = numAmount / conversion.ratio
-    } else {
-      return { amount, unit: targetUnit }
-    }
-    
-    // Format the converted amount nicely
-    let formattedAmount: string
-    if (convertedAmount < 1) {
-      formattedAmount = convertedAmount.toFixed(2)
-    } else if (convertedAmount < 10) {
-      formattedAmount = convertedAmount.toFixed(1)
-    } else {
-      formattedAmount = Math.round(convertedAmount).toString()
-    }
-    
-    return { amount: formattedAmount, unit: targetUnit }
-  }
-
-  // For units without conversion ratios, just return the appropriate unit name
-  const targetUnit = targetSystem === 'metric' ? conversion.metric : conversion.imperial
-  return { amount, unit: targetUnit }
+  // Fallback: return original
+  return { amount, unit }
 }
 
-export function formatIngredientAmount(amount?: string, unit?: string, unitSystem: UnitSystem = 'metric'): string {
-  if (!amount) return ''
+// Format numbers nicely for display  
+function formatNumber(num: number): string {
+  if (num === 0) return '0'
+  if (num < 0.01) return num.toFixed(3)
+  if (num < 1) return num.toFixed(2)
+  if (num < 10) return num.toFixed(1)
+  if (num < 100) return Math.round(num * 10) / 10 + '' // One decimal if needed
+  return Math.round(num).toString()
+}
+
+// Convert library format back to display format
+function getDisplayUnit(convertUnit: string): string {
+  const displayMap: Record<string, string> = {
+    'teaspoon': 'tsp',
+    'tablespoon': 'tbsp',
+    'cup': 'cup',
+    'fluid-ounce': 'fl oz',
+    'pint': 'pint',
+    'quart': 'qt',
+    'gallon': 'gal',
+    'millilitre': 'ml',
+    'litre': 'l',
+    'ounce': 'oz',
+    'pound': 'lb',
+    'gram': 'g',
+    'kilogram': 'kg'
+  }
   
+  return displayMap[convertUnit] || convertUnit
+}
+
+export function formatIngredientAmount(
+  amount?: string,
+  unit?: string,
+  unitSystem: UnitSystem = "metric"
+): string {
+  if (!amount) return ""
+
+  // Check if amount already contains a unit (e.g., "1/2 teaspoon", "2 cups")
+  const amountWithUnitPattern = /^(.+?)\s+(teaspoons?|tsp|tablespoons?|tbsp|cups?|ounces?|oz|pounds?|lbs?|grams?|g|kilograms?|kg|milliliters?|ml|liters?|l|cloves?|cans?|pieces?)$/i
+  const match = amount.match(amountWithUnitPattern)
+
+  if (match) {
+    // Amount already includes the unit, just format the number part
+    const [, amountPart, unitPart] = match
+    const converted = convertUnit(amountPart, unitPart, unitSystem)
+    return `${converted.amount} ${converted.unit}`.trim()
+  }
+
+  // Check if the provided unit is already contained in the amount string
+  if (unit && amount.toLowerCase().includes(unit.toLowerCase())) {
+    return amount.trim()
+  }
+
   if (!unit) return amount
-  
+
   const converted = convertUnit(amount, unit, unitSystem)
-  console.log(`Converting: ${amount} ${unit} (${unitSystem}) -> ${converted.amount} ${converted.unit}`)
   return `${converted.amount} ${converted.unit}`.trim()
+}
+
+// Helper function for comparing amounts in different units (for availability checking)
+export function convertToCommonUnit(amount: string, fromUnit: string, toUnit: string): number | null {
+  if (!amount || !fromUnit || !toUnit) return null
+  
+  const numericAmount = parseFraction(amount)
+  if (numericAmount === 0 && amount !== '0') return null
+  
+  const fromConvertUnit = mapToConvertFormat(fromUnit)
+  const toConvertUnit = mapToConvertFormat(toUnit)
+  
+  if (!fromConvertUnit || !toConvertUnit) return null
+  
+  try {
+    // Convert from source unit to target unit
+    const converter = convert(numericAmount, fromConvertUnit)
+    const converted = converter.to(toConvertUnit)
+    return converted
+  } catch (error) {
+    console.warn(`Unit conversion failed: ${amount} ${fromUnit} -> ${toUnit}`, error)
+    return null
+  }
 }

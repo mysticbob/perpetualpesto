@@ -7,13 +7,25 @@ import {
   useColorModeValue,
   Tooltip,
   IconButton,
-  Divider
+  Divider,
+  Badge,
+  Progress,
+  Button
 } from '@chakra-ui/react'
 import { 
   CalendarIcon, 
   AddIcon,
-  HamburgerIcon
-} from '@chakra-ui/icons'
+  HamburgerIcon,
+  RecipeIcon,
+  PantryIcon,
+  GroceryIcon,
+  StoreIcon,
+  SettingsIcon,
+  TimeIcon,
+  DeleteIcon
+} from './icons/CustomIcons'
+import { useTimers } from '../contexts/TimerContext'
+import { useAuth } from '../contexts/AuthContext'
 
 interface SidebarProps {
   currentView: string
@@ -26,7 +38,7 @@ const navigationItems = [
   {
     id: 'list',
     label: 'Recipes',
-    icon: '📖',
+    icon: RecipeIcon,
     description: 'Browse your recipe collection'
   },
   {
@@ -38,19 +50,19 @@ const navigationItems = [
   {
     id: 'pantry',
     label: 'Pantry',
-    icon: '🏠',
+    icon: PantryIcon,
     description: 'Track what you have at home'
   },
   {
     id: 'grocery',
     label: 'Groceries',
-    icon: '🛒',
+    icon: GroceryIcon,
     description: 'Shopping lists'
   },
   {
     id: 'stores',
     label: 'Stores',
-    icon: '🏪',
+    icon: StoreIcon,
     description: 'Grocery delivery & pickup services'
   },
   {
@@ -62,7 +74,7 @@ const navigationItems = [
   {
     id: 'preferences',
     label: 'Preferences',
-    icon: '⚙️',
+    icon: SettingsIcon,
     description: 'App settings and preferences'
   }
 ]
@@ -74,8 +86,38 @@ export default function Sidebar({ currentView, onNavigate, isCollapsed = false, 
   const activeBg = useColorModeValue('blue.50', 'blue.900')
   const activeColor = useColorModeValue('blue.600', 'blue.300')
   const textColor = useColorModeValue('gray.700', 'gray.300')
+  const { timers, pauseTimer, startTimer, removeTimer, clearCompletedTimers } = useTimers()
+  const { currentUser, logout } = useAuth()
 
   const sidebarWidth = isCollapsed ? '80px' : '240px'
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Failed to logout:', error)
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    const totalMinutes = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    
+    // If greater than 60 minutes, format as "X hours, YY minutes"
+    if (totalMinutes >= 60) {
+      const hours = Math.floor(totalMinutes / 60)
+      const mins = totalMinutes % 60
+      
+      if (mins === 0) {
+        return `${hours} hour${hours !== 1 ? 's' : ''}`
+      } else {
+        return `${hours} hour${hours !== 1 ? 's' : ''}, ${mins.toString().padStart(2, '0')} min`
+      }
+    }
+    
+    // For durations under 60 minutes, use the original format
+    return `${totalMinutes}:${secs.toString().padStart(2, '0')}`
+  }
 
   return (
     <Box
@@ -95,8 +137,8 @@ export default function Sidebar({ currentView, onNavigate, isCollapsed = false, 
         <Box w="full" p={4} borderBottom="1px solid" borderBottomColor={borderColor}>
           <HStack justify="space-between" align="center">
             {!isCollapsed && (
-              <Text fontSize="xl" fontWeight="bold" color={activeColor}>
-                Recipe Planner
+              <Text fontSize="xl" fontWeight="bold" color={activeColor} >
+                Eat It App
               </Text>
             )}
             <IconButton
@@ -113,7 +155,7 @@ export default function Sidebar({ currentView, onNavigate, isCollapsed = false, 
         <VStack spacing={1} flex={1} w="full" p={2} align="start">
           {navigationItems.map((item) => {
             const isActive = currentView === item.id
-            const IconComponent = typeof item.icon === 'string' ? null : item.icon
+            const IconComponent = item.icon
 
             return (
               <Tooltip
@@ -134,12 +176,8 @@ export default function Sidebar({ currentView, onNavigate, isCollapsed = false, 
                   onClick={() => onNavigate(item.id)}
                 >
                   <HStack spacing={3} justify={isCollapsed ? 'center' : 'start'}>
-                    <Box fontSize="20px" minW="20px" textAlign="center">
-                      {IconComponent ? (
-                        <Icon as={IconComponent} boxSize={5} />
-                      ) : (
-                        <Text>{typeof item.icon === 'string' ? item.icon : ''}</Text>
-                      )}
+                    <Box minW="20px" textAlign="center">
+                      <Icon as={IconComponent} boxSize={5} />
                     </Box>
                     {!isCollapsed && (
                       <Text fontSize="md" fontWeight={isActive ? 'semibold' : 'medium'}>
@@ -153,12 +191,145 @@ export default function Sidebar({ currentView, onNavigate, isCollapsed = false, 
           })}
         </VStack>
 
-        {/* Footer */}
-        <Box w="full" p={4} borderTop="1px solid" borderTopColor={borderColor}>
-          {!isCollapsed && (
-            <Text fontSize="xs" color={textColor} textAlign="center">
-              Recipe Planner v1.0
-            </Text>
+        {/* Active Timers */}
+        {timers.length > 0 && (
+          <Box w="full" borderTop="1px solid" borderTopColor={borderColor}>
+            {!isCollapsed && (
+              <VStack spacing={2} p={3} align="start">
+                <HStack justify="space-between" w="full">
+                  <HStack spacing={2}>
+                    <TimeIcon boxSize={4} color={activeColor} />
+                    <Text fontSize="sm" fontWeight="semibold" color={activeColor}>
+                      Timers
+                    </Text>
+                  </HStack>
+                  {timers.some(t => t.isCompleted) && (
+                    <Button size="xs" variant="ghost" onClick={clearCompletedTimers}>
+                      Clear
+                    </Button>
+                  )}
+                </HStack>
+                
+                <VStack spacing={1.5} w="full" maxH="320px" overflowY="auto">
+                  {timers.map((timer) => (
+                    <Box
+                      key={timer.id}
+                      w="full"
+                      p={1.5}
+                      borderRadius="md"
+                      bg={timer.isCompleted ? useColorModeValue('red.50', 'red.900') : 
+                          timer.isRunning ? useColorModeValue('green.50', 'green.900') : 
+                          useColorModeValue('gray.50', 'gray.700')}
+                      borderLeft="3px solid"
+                      borderLeftColor={timer.isCompleted ? 'red.400' : timer.isRunning ? 'green.400' : 'gray.400'}
+                    >
+                      <VStack spacing={0.5} align="start">
+                        <HStack justify="space-between" w="full">
+                          <Text fontSize="xs" fontWeight="medium" noOfLines={1} flex={1} color={textColor}>
+                            {timer.name}
+                          </Text>
+                          <IconButton
+                            aria-label="Remove timer"
+                            icon={<DeleteIcon />}
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => removeTimer(timer.id)}
+                          />
+                        </HStack>
+                        
+                        <HStack justify="space-between" w="full">
+                          <Text 
+                            fontSize="xs" 
+                            fontWeight="bold" 
+                            color={timer.isCompleted ? useColorModeValue('red.600', 'red.300') : textColor}
+                          >
+                            {timer.isCompleted ? 'DONE!' : formatTime(timer.remainingSeconds)}
+                          </Text>
+                          
+                          {!timer.isCompleted && (
+                            <Button
+                              size="xs"
+                              colorScheme={timer.isRunning ? 'red' : 'green'}
+                              onClick={() => timer.isRunning ? pauseTimer(timer.id) : startTimer(timer.id)}
+                            >
+                              {timer.isRunning ? 'Pause' : 'Start'}
+                            </Button>
+                          )}
+                        </HStack>
+                        
+                        {!timer.isCompleted && (
+                          <Progress
+                            value={((timer.totalSeconds - timer.remainingSeconds) / timer.totalSeconds) * 100}
+                            size="sm"
+                            w="full"
+                            colorScheme={timer.isRunning ? 'green' : 'gray'}
+                          />
+                        )}
+                        
+                        {timer.recipeStep && (
+                          <Text fontSize="xs" color={useColorModeValue('gray.500', 'gray.400')}>
+                            Step {timer.recipeStep} • {timer.recipeName}
+                          </Text>
+                        )}
+                      </VStack>
+                    </Box>
+                  ))}
+                </VStack>
+              </VStack>
+            )}
+            
+            {isCollapsed && timers.length > 0 && (
+              <Box p={2} textAlign="center">
+                <Badge colorScheme="green" fontSize="xs">
+                  {timers.length}
+                </Badge>
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* User Info & Footer */}
+        <Box w="full" borderTop="1px solid" borderTopColor={borderColor}>
+          {!isCollapsed && currentUser && (
+            <VStack spacing={3} p={4}>
+              <VStack spacing={1} w="full">
+                <Text fontSize="sm" fontWeight="semibold" color={textColor} noOfLines={1}>
+                  {currentUser.displayName || currentUser.email}
+                </Text>
+                <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                  {currentUser.email}
+                </Text>
+              </VStack>
+              
+              <Button
+                size="sm"
+                variant="ghost"
+                w="full"
+                onClick={handleLogout}
+                color={textColor}
+                _hover={{ bg: hoverBg }}
+              >
+                Sign Out
+              </Button>
+              
+              <Text fontSize="xs" color={textColor} textAlign="center">
+                Eat It App v1.0
+              </Text>
+            </VStack>
+          )}
+
+          {isCollapsed && (
+            <Box p={2} textAlign="center">
+              <Tooltip label="Sign Out" placement="right">
+                <IconButton
+                  aria-label="Sign out"
+                  icon={<Text fontSize="sm">👤</Text>}
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleLogout}
+                />
+              </Tooltip>
+            </Box>
           )}
         </Box>
       </VStack>

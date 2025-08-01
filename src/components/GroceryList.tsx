@@ -9,211 +9,704 @@ import {
   IconButton,
   Button,
   useColorModeValue,
-  Divider,
-  Badge
+  Container,
+  Badge,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  useDisclosure,
+  FormControl,
+  FormLabel,
+  Input,
+  Select,
+  Checkbox,
+  Image,
+  Link,
+  SimpleGrid,
+  Card,
+  CardBody
 } from '@chakra-ui/react'
-import { useState } from 'react'
-import { ChevronLeftIcon, AddIcon, DeleteIcon, CheckIcon } from '@chakra-ui/icons'
+import { useState, useEffect } from 'react'
+import { ChevronLeftIcon, AddIcon, DeleteIcon, CheckIcon, ExternalLinkIcon } from './icons/CustomIcons'
 import ExportToReminders from './ExportToReminders'
+import { usePantry } from '../contexts/PantryContext'
+import { useGrocery, GroceryItem } from '../contexts/GroceryContext'
+import { calculateExpirationDate } from '../utils/expiration'
 
-interface GroceryItem {
+interface Store {
   id: string
   name: string
-  amount?: string
-  unit?: string
-  category?: string
-  completed: boolean
+  description: string
+  type: 'delivery' | 'pickup' | 'subscription' | 'specialty'
+  logo: string
+  website: string
+  deliveryTime?: string
+  minOrder?: string
+  deliveryFee?: string
+  enabled: boolean
 }
 
 interface GroceryListProps {
   onBack: () => void
 }
 
-// Mock grocery data based on the chili recipe
-const mockGroceryItems: GroceryItem[] = [
-  { id: '1', name: 'black beans', amount: '500g', category: 'dried', completed: false },
-  { id: '2', name: 'beluga lentils', amount: '500g', category: 'dried', completed: false },
-  { id: '3', name: 'diced tomatoes', amount: '4 cans', completed: false },
-  { id: '4', name: 'corn', amount: '1 can', completed: false },
-  { id: '5', name: 'bell peppers', amount: '4', completed: false },
-  { id: '6', name: 'onion', amount: '1', completed: false },
-  { id: '7', name: 'garlic', amount: '2 cloves', completed: false },
-  { id: '8', name: 'chilli peppers', completed: false },
-  { id: '9', name: 'tomato paste', amount: '5 tbsp', completed: false },
-  { id: '10', name: 'canola oil', amount: '3 tbsp', completed: true },
-  { id: '11', name: 'vegetable broth', completed: true },
-  { id: '12', name: 'salt', completed: true }
+// Mock active stores (from StoresPage)
+const activeStores: Store[] = [
+  {
+    id: 'amazon-fresh',
+    name: 'Amazon Fresh',
+    description: 'Fast grocery delivery from Amazon with Prime benefits',
+    type: 'delivery',
+    logo: 'https://images.unsplash.com/photo-1523474253046-8cd2748b5fd2?w=100&h=100&fit=crop',
+    website: 'https://www.amazon.com/fresh',
+    deliveryTime: '2-4 hours',
+    minOrder: '$35',
+    deliveryFee: 'Free with Prime',
+    enabled: true
+  },
+  {
+    id: 'whole-foods',
+    name: 'Whole Foods Market',
+    description: 'Organic and natural foods with Amazon Prime delivery',
+    type: 'delivery',
+    logo: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=100&h=100&fit=crop',
+    website: 'https://www.wholefoodsmarket.com',
+    deliveryTime: '1-2 hours',
+    minOrder: '$35',
+    deliveryFee: 'Free with Prime',
+    enabled: true
+  }
 ]
 
 export default function GroceryList({ onBack }: GroceryListProps) {
-  const [items, setItems] = useState<GroceryItem[]>(mockGroceryItems)
+  const { groceryItems, addGroceryItem, removeGroceryItem, toggleGroceryItem, clearCompleted, updateGroceryItem, consolidateItems } = useGrocery()
+  const [newItem, setNewItem] = useState<Partial<GroceryItem>>({})
+  const [selectedItemsForPurchase, setSelectedItemsForPurchase] = useState<Set<string>>(new Set())
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null)
+  const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure()
+  const { isOpen: isFulfillOpen, onOpen: onFulfillOpen, onClose: onFulfillClose } = useDisclosure()
+  const { pantryData, setPantryData } = usePantry()
   
-  const bgColor = useColorModeValue('white', 'gray.800')
-  const mutedColor = useColorModeValue('gray.500', 'gray.400')
-  const completedBg = useColorModeValue('red.500', 'red.600')
-  const borderColor = useColorModeValue('gray.200', 'gray.600')
+  const bgColor = useColorModeValue('#ffffff', 'gray.900')
+  const mutedColor = useColorModeValue('gray.600', 'gray.400')
+  const borderColor = useColorModeValue('gray.200', 'gray.700')
+  const brandColor = '#38BDAF'
+  const successColor = '#008060'
+  const criticalColor = '#d72c0d'
 
-  const toggleItem = (itemId: string) => {
-    setItems(items.map(item => 
-      item.id === itemId 
-        ? { ...item, completed: !item.completed }
-        : item
-    ))
+  const toggleItem = (itemId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    
+    const item = groceryItems.find(i => i.id === itemId)
+    if (!item) return
+
+    const isBeingCompleted = !item.completed
+    toggleGroceryItem(itemId)
+
+    // When marking an item as completed, add it to the pantry
+    if (isBeingCompleted && item) {
+      addItemToPantry(item)
+    }
   }
 
-  const clearCompleted = () => {
-    setItems(items.filter(item => !item.completed))
+  // Helper function to simplify ingredient names
+  const simplifyIngredientName = (name: string): string => {
+    // Remove common descriptive phrases and parenthetical information
+    let simplified = name
+      // Remove parenthetical descriptions
+      .replace(/\([^)]*\)/g, '')
+      // Remove common descriptive phrases
+      .replace(/\b(small|medium|large|extra large|jumbo)\b/gi, '')
+      .replace(/\b(fresh|dried|frozen|canned|organic|raw)\b/gi, '')
+      .replace(/\b(cut into.*|chopped.*|sliced.*|diced.*|minced.*|crushed.*|ground.*)\b/gi, '')
+      .replace(/\b(about.*|approximately.*|roughly.*)\b/gi, '')
+      .replace(/\b(plus more.*|or more.*|to taste.*)\b/gi, '')
+      .replace(/\b(tender leaves and stems|leaves and stems|stems removed)\b/gi, '')
+      .replace(/\b(coarsely chopped|finely chopped|roughly chopped)\b/gi, '')
+      // Clean up extra spaces and commas
+      .replace(/,\s*,/g, ',')
+      .replace(/,\s*$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    // Capitalize first letter of each word for consistency
+    return simplified
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
   }
 
-  const completedItems = items.filter(item => item.completed)
-  const pendingItems = items.filter(item => !item.completed)
+  // Helper function to parse amounts for consolidation
+  const parseAmountForPantry = (amount?: string): { value: number; unit?: string } => {
+    if (!amount) return { value: 1 }
+    
+    // Handle fractions like "1/2", "3/4", etc.
+    const fractionMatch = amount.match(/^(\d+)\/(\d+)/)
+    if (fractionMatch) {
+      const numerator = parseInt(fractionMatch[1])
+      const denominator = parseInt(fractionMatch[2])
+      return { value: numerator / denominator }
+    }
+    
+    // Handle mixed numbers like "1 1/2"
+    const mixedMatch = amount.match(/^(\d+)\s+(\d+)\/(\d+)/)
+    if (mixedMatch) {
+      const whole = parseInt(mixedMatch[1])
+      const numerator = parseInt(mixedMatch[2])
+      const denominator = parseInt(mixedMatch[3])
+      return { value: whole + (numerator / denominator) }
+    }
+    
+    // Handle regular numbers
+    const numberMatch = amount.match(/^(\d+(?:\.\d+)?)/)
+    if (numberMatch) {
+      return { value: parseFloat(numberMatch[1]) }
+    }
+    
+    return { value: 1 }
+  }
+
+  // Helper function to format consolidated amounts
+  const formatPantryAmount = (value: number): string => {
+    if (value === Math.floor(value)) {
+      return value.toString()
+    }
+    
+    // Convert decimals to fractions for common cooking measurements
+    const commonFractions = [
+      { decimal: 0.125, fraction: '1/8' },
+      { decimal: 0.25, fraction: '1/4' },
+      { decimal: 0.333, fraction: '1/3' },
+      { decimal: 0.5, fraction: '1/2' },
+      { decimal: 0.667, fraction: '2/3' },
+      { decimal: 0.75, fraction: '3/4' }
+    ]
+    
+    for (const { decimal, fraction } of commonFractions) {
+      if (Math.abs(value - decimal) < 0.01) {
+        return fraction
+      }
+    }
+    
+    // Check for mixed numbers
+    const whole = Math.floor(value)
+    const remainder = value - whole
+    
+    for (const { decimal, fraction } of commonFractions) {
+      if (Math.abs(remainder - decimal) < 0.01) {
+        return whole > 0 ? `${whole} ${fraction}` : fraction
+      }
+    }
+    
+    return value.toFixed(2).replace(/\.?0+$/, '')
+  }
+
+  const addItemToPantry = (groceryItem: GroceryItem) => {
+    const now = new Date().toISOString()
+    
+    // Simplify the ingredient name
+    const simplifiedName = simplifyIngredientName(groceryItem.name)
+    
+    // Determine the best pantry location based on item category
+    const getLocationForCategory = (category?: string) => {
+      switch (category) {
+        case 'dairy':
+        case 'meat':
+          return 'refrigerator'
+        case 'vegetables':
+          return 'refrigerator' // Fresh produce goes to fridge
+        case 'dried':
+        case 'grains':
+        case 'canned':
+        case 'spices':
+          return 'pantry'
+        default:
+          return 'refrigerator' // Default to refrigerator for fresh items
+      }
+    }
+
+    const targetLocationId = getLocationForCategory(groceryItem.category)
+    const expirationDate = calculateExpirationDate(simplifiedName, groceryItem.category, targetLocationId).toISOString()
+
+    setPantryData(prev => prev.map(location => {
+      if (location.id !== targetLocationId) return location
+
+      // Check if an item with the same simplified name already exists
+      const existingItemIndex = location.items.findIndex(item => 
+        item.name.toLowerCase().trim() === simplifiedName.toLowerCase().trim()
+      )
+
+      if (existingItemIndex !== -1) {
+        // Consolidate with existing item
+        const existingItem = location.items[existingItemIndex]
+        const existingParsed = parseAmountForPantry(existingItem.amount)
+        const newParsed = parseAmountForPantry(groceryItem.amount)
+        const totalAmount = existingParsed.value + newParsed.value
+
+        // Update the existing item with consolidated amount
+        const updatedItems = [...location.items]
+        updatedItems[existingItemIndex] = {
+          ...existingItem,
+          amount: formatPantryAmount(totalAmount),
+          unit: groceryItem.unit || existingItem.unit || 'pieces',
+          addedDate: now, // Update the added date
+          expirationDate // Update expiration date
+        }
+
+        return { ...location, items: updatedItems }
+      } else {
+        // Add as new item
+        const newPantryItem = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name: simplifiedName,
+          amount: groceryItem.amount || '1',
+          unit: groceryItem.unit || 'pieces',
+          location: targetLocationId,
+          category: groceryItem.category || 'other',
+          addedDate: now,
+          expirationDate
+        }
+
+        return { ...location, items: [...location.items, newPantryItem] }
+      }
+    }))
+  }
+
+  const addNewItem = () => {
+    if (!newItem.name) return
+
+    addGroceryItem({
+      name: newItem.name,
+      amount: newItem.amount,
+      unit: newItem.unit,
+      category: newItem.category
+    })
+
+    setNewItem({})
+    onAddClose()
+  }
+
+  const openFulfillment = () => {
+    // Pre-select all pending items
+    const pendingItemIds = new Set(pendingItems.map(item => item.id))
+    setSelectedItemsForPurchase(pendingItemIds)
+    onFulfillOpen()
+  }
+
+  const toggleItemForPurchase = (itemId: string) => {
+    const newSelected = new Set(selectedItemsForPurchase)
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId)
+    } else {
+      newSelected.add(itemId)
+    }
+    setSelectedItemsForPurchase(newSelected)
+  }
+
+  const generateShoppingList = () => {
+    const selectedItems = groceryItems.filter(item => selectedItemsForPurchase.has(item.id))
+    return selectedItems.map(item => {
+      if (item.amount && item.unit) {
+        return `${item.amount} ${item.unit} ${item.name}`
+      } else if (item.amount) {
+        return `${item.amount} ${item.name}`
+      }
+      return item.name
+    }).join('\n')
+  }
+
+  const handlePurchaseFromStore = (store: Store) => {
+    const shoppingList = generateShoppingList()
+    const encodedList = encodeURIComponent(shoppingList)
+    
+    // Generate search URL for the selected store
+    let searchUrl = store.website
+    
+    if (store.id === 'amazon-fresh') {
+      searchUrl = `https://www.amazon.com/s?k=${encodedList}&i=amazonfresh`
+    } else if (store.id === 'whole-foods') {
+      searchUrl = `https://www.amazon.com/s?k=${encodedList}&i=wholefoods`
+    } else {
+      // For other stores, just open their main website
+      searchUrl = store.website
+    }
+    
+    window.open(searchUrl, '_blank')
+    onFulfillClose()
+  }
+
+  // Removed auto-consolidation to prevent random resets
+  // Users can manually consolidate using the Consolidate button
+
+  const completedItems = groceryItems.filter(item => item.completed)
+  const pendingItems = groceryItems.filter(item => !item.completed)
 
   return (
     <Box minH="100vh" bg={bgColor}>
-      {/* Header */}
-      <Box p={4} borderBottom="1px" borderColor={borderColor}>
-        <HStack justify="space-between" align="center">
-          <HStack spacing={4}>
-            <IconButton
-              aria-label="Back"
-              icon={<ChevronLeftIcon />}
-              size="sm"
-              variant="ghost"
-              onClick={onBack}
-            />
-            <Heading size="lg">Groceries</Heading>
-          </HStack>
-          
-          <HStack spacing={2}>
-            <IconButton
-              aria-label="Add item"
-              icon={<AddIcon />}
-              size="sm"
-              variant="ghost"
-            />
-            <IconButton
-              aria-label="Delete completed"
-              icon={<DeleteIcon />}
-              size="sm"
-              variant="ghost"
-            />
-            <ExportToReminders 
-              items={items}
-              recipeName="Recipe Groceries"
-            />
-            {completedItems.length > 0 && (
-              <Button
-                size="sm"
-                variant="ghost"
-                colorScheme="red"
-                onClick={clearCompleted}
-              >
-                CLEAR COMPLETED
-              </Button>
-            )}
-          </HStack>
-        </HStack>
-      </Box>
-
-      {/* Grocery List */}
-      <Box p={6} maxW="2xl" mx="auto">
-        <VStack spacing={6} align="start" w="full">
-          {/* Pending Items */}
-          <List spacing={4} w="full">
-            {pendingItems.map((item) => (
-              <ListItem key={item.id}>
-                <HStack
-                  spacing={4}
-                  cursor="pointer"
-                  onClick={() => toggleItem(item.id)}
-                  p={4}
-                  borderRadius="md"
-                  _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}
-                  transition="background 0.2s"
+      <Container maxW="6xl" py={8}>
+        <VStack spacing={8} align="start">
+          {/* Header */}
+          <VStack spacing={4} align="start" w="full">
+            <Button variant="ghost" onClick={onBack} size="sm">
+              ← Back
+            </Button>
+            <HStack justify="space-between" w="full">
+              <Heading size="xl">Groceries</Heading>
+              <HStack spacing={2}>
+                <IconButton
+                  aria-label="Add item"
+                  icon={<AddIcon />}
+                  size="md"
+                  variant="ghost"
+                  style={{ color: brandColor }}
+                  _hover={{ backgroundColor: `${brandColor}20` }}
+                  onClick={onAddOpen}
+                />
+                <Button
+                  size="md"
+                  variant="ghost"
+                  style={{ color: brandColor }}
+                  _hover={{ backgroundColor: `${brandColor}20` }}
+                  onClick={consolidateItems}
                 >
-                  <Box
-                    w="6"
-                    h="6"
-                    borderRadius="full"
-                    border="2px solid"
-                    borderColor="gray.300"
-                    bg="transparent"
-                    flexShrink={0}
-                  />
-                  
-                  <VStack align="start" spacing={1} flex={1}>
-                    <HStack spacing={2}>
-                      <Text fontWeight="medium" fontSize="md">
-                        {item.name}
-                      </Text>
-                      {item.category && (
-                        <Badge size="sm" colorScheme="gray">
-                          {item.category}
-                        </Badge>
-                      )}
+                  Consolidate
+                </Button>
+                {pendingItems.length > 0 && activeStores.length > 0 && (
+                  <Button
+                    size="md"
+                    style={{ backgroundColor: brandColor, color: 'white' }}
+                    _hover={{ backgroundColor: '#2da89c' }}
+                    onClick={openFulfillment}
+                  >
+                    🛒 Buy Groceries
+                  </Button>
+                )}
+                <ExportToReminders 
+                  items={groceryItems}
+                  recipeName="Recipe Groceries"
+                />
+                {completedItems.length > 0 && (
+                  <Button
+                    size="md"
+                    variant="ghost"
+                    style={{ color: criticalColor }}
+                    _hover={{ backgroundColor: `${criticalColor}20` }}
+                    onClick={() => clearCompleted()}
+                  >
+                    CLEAR COMPLETED
+                  </Button>
+                )}
+              </HStack>
+            </HStack>
+          </VStack>
+
+          {/* Pending Items */}
+          <Box w="full">
+            <List spacing={0}>
+              {pendingItems.map((item, index) => (
+                <ListItem key={item.id}>
+                  <HStack
+                    justify="space-between"
+                    py={4}
+                    px={4}
+                    borderBottom={index < pendingItems.length - 1 ? "1px" : "none"}
+                    borderColor={borderColor}
+                    _hover={{ bg: useColorModeValue('gray.100', 'gray.800') }}
+                  >
+                    <HStack spacing={4} flex={1}>
+                      <IconButton
+                        aria-label="Mark as completed"
+                        icon={<CheckIcon />}
+                        size="md"
+                        variant="outline"
+                        borderRadius="full"
+                        style={{ borderColor: successColor, color: successColor }}
+                        _hover={{ backgroundColor: `${successColor}20` }}
+                        onClick={(e) => toggleItem(item.id, e)}
+                      />
+                      <VStack align="start" spacing={1} flex={1}>
+                        <Text fontWeight="medium" fontSize="md">
+                          {item.name}
+                        </Text>
+                        <HStack spacing={2}>
+                          {(item.amount || item.unit) && (
+                            <Text fontSize="sm" style={{ color: brandColor }} fontWeight="bold">
+                              {item.amount && item.unit 
+                                ? `${item.amount} ${item.unit}`
+                                : item.amount || item.unit || ''
+                              }
+                            </Text>
+                          )}
+                          {item.category && (
+                            <Badge 
+                              size="sm" 
+                              colorScheme="gray"
+                              textTransform="uppercase"
+                            >
+                              {item.category}
+                            </Badge>
+                          )}
+                        </HStack>
+                      </VStack>
                     </HStack>
-                    {item.amount && (
-                      <Text fontSize="sm" color="red.500" fontWeight="medium">
-                        {item.amount}
-                      </Text>
-                    )}
-                  </VStack>
-                </HStack>
-                <Divider />
-              </ListItem>
-            ))}
-          </List>
+                  </HStack>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
 
           {/* Completed Items */}
           {completedItems.length > 0 && (
-            <>
-              <Divider />
-              <Text fontSize="sm" color={mutedColor} fontWeight="medium">
+            <Box w="full">
+              <Text fontSize="sm" color={mutedColor} fontWeight="medium" mb={4} pb={2} borderBottom="2px" borderColor={borderColor}>
                 COMPLETED ({completedItems.length})
               </Text>
               
-              <List spacing={3} w="full">
-                {completedItems.map((item) => (
+              <List spacing={0}>
+                {completedItems.map((item, index) => (
                   <ListItem key={item.id}>
                     <HStack
-                      spacing={4}
-                      cursor="pointer"
-                      onClick={() => toggleItem(item.id)}
-                      p={3}
-                      borderRadius="md"
+                      justify="space-between"
+                      py={3}
+                      px={4}
+                      borderBottom={index < completedItems.length - 1 ? "1px" : "none"}
+                      borderColor={borderColor}
+                      _hover={{ bg: useColorModeValue('gray.100', 'gray.800') }}
                       opacity={0.6}
-                      _hover={{ opacity: 0.8 }}
-                      transition="opacity 0.2s"
                     >
-                      <Box
-                        w="5"
-                        h="5"
-                        borderRadius="full"
-                        bg="green.500"
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="center"
-                        flexShrink={0}
-                      >
-                        <CheckIcon w="3" h="3" color="white" />
-                      </Box>
-                      
-                      <Text
-                        fontSize="sm"
-                        color={mutedColor}
-                        textDecoration="line-through"
-                        flex={1}
-                      >
-                        {item.name}
-                      </Text>
+                      <HStack spacing={4} flex={1}>
+                        <IconButton
+                          aria-label="Mark as incomplete"
+                          icon={<CheckIcon />}
+                          size="md"
+                          variant="solid"
+                          borderRadius="full"
+                          style={{ backgroundColor: successColor, color: 'white' }}
+                          _hover={{ backgroundColor: '#006b4f' }}
+                          onClick={(e) => toggleItem(item.id, e)}
+                        />
+                        <Text
+                          fontSize="md"
+                          color={mutedColor}
+                          textDecoration="line-through"
+                          flex={1}
+                        >
+                          {item.name}
+                        </Text>
+                      </HStack>
                     </HStack>
                   </ListItem>
                 ))}
               </List>
-            </>
+            </Box>
           )}
         </VStack>
-      </Box>
+      </Container>
+
+      {/* Add Item Modal */}
+      <Modal isOpen={isAddOpen} onClose={onAddClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Add Grocery Item</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4}>
+              <FormControl>
+                <FormLabel>Item Name</FormLabel>
+                <Input
+                  placeholder="e.g., milk, bread, apples"
+                  value={newItem.name || ''}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </FormControl>
+
+              <HStack spacing={4} w="full">
+                <FormControl>
+                  <FormLabel>Amount (Optional)</FormLabel>
+                  <Input
+                    placeholder="e.g., 2, 500g, 1 bag"
+                    value={newItem.amount || ''}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, amount: e.target.value }))}
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Category (Optional)</FormLabel>
+                  <Select
+                    placeholder="Select category"
+                    value={newItem.category || ''}
+                    onChange={(e) => setNewItem(prev => ({ ...prev, category: e.target.value }))}
+                  >
+                    <option value="vegetables">Vegetables</option>
+                    <option value="dairy">Dairy</option>
+                    <option value="meat">Meat</option>
+                    <option value="grains">Grains</option>
+                    <option value="canned">Canned Goods</option>
+                    <option value="dried">Dried Goods</option>
+                    <option value="spices">Spices</option>
+                    <option value="other">Other</option>
+                  </Select>
+                </FormControl>
+              </HStack>
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onAddClose}>
+              Cancel
+            </Button>
+            <Button 
+              style={{ backgroundColor: brandColor, color: 'white' }}
+              _hover={{ backgroundColor: '#2da89c' }}
+              onClick={addNewItem}
+            >
+              Add Item
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Grocery Fulfillment Modal */}
+      <Modal isOpen={isFulfillOpen} onClose={onFulfillClose} size="lg">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <VStack spacing={2} align="start">
+              <HStack spacing={3}>
+                <Text fontSize="lg">🛒 Buy Groceries</Text>
+              </HStack>
+              <Text fontSize="sm" fontWeight="normal" color={mutedColor}>
+                Select items to purchase and choose your preferred store
+              </Text>
+            </VStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          
+          <ModalBody>
+            <VStack spacing={6} align="start">
+              {/* Item Selection */}
+              <Box w="full">
+                <Text fontSize="md" fontWeight="semibold" mb={3}>
+                  Items to Purchase ({selectedItemsForPurchase.size} selected)
+                </Text>
+                
+                <VStack spacing={3} align="start">
+                  {pendingItems.map((item) => (
+                    <HStack key={item.id} spacing={3} w="full" p={3} borderRadius="md" border="1px" borderColor={borderColor}>
+                      <Checkbox
+                        isChecked={selectedItemsForPurchase.has(item.id)}
+                        onChange={() => toggleItemForPurchase(item.id)}
+                        colorScheme="teal"
+                      />
+                      <VStack align="start" spacing={1} flex={1}>
+                        <Text fontWeight="medium" fontSize="sm">
+                          {item.name}
+                        </Text>
+                        <HStack spacing={2}>
+                          {(item.amount || item.unit) && (
+                            <Text fontSize="xs" style={{ color: brandColor }} fontWeight="bold">
+                              {item.amount && item.unit 
+                                ? `${item.amount} ${item.unit}`
+                                : item.amount || item.unit || ''
+                              }
+                            </Text>
+                          )}
+                          {item.category && (
+                            <Badge size="xs" colorScheme="gray" textTransform="uppercase">
+                              {item.category}
+                            </Badge>
+                          )}
+                        </HStack>
+                      </VStack>
+                    </HStack>
+                  ))}
+                </VStack>
+              </Box>
+
+              {/* Store Selection */}
+              {selectedItemsForPurchase.size > 0 && (
+                <Box w="full">
+                  <Text fontSize="md" fontWeight="semibold" mb={3}>
+                    Choose Your Store
+                  </Text>
+                  
+                  <SimpleGrid columns={1} spacing={3}>
+                    {activeStores.map((store) => (
+                      <Card key={store.id} variant="outline" cursor="pointer" _hover={{ borderColor: brandColor, shadow: 'md' }}>
+                        <CardBody p={4}>
+                          <HStack spacing={4} align="start">
+                            <Image
+                              src={store.logo}
+                              alt={store.name}
+                              w="60px"
+                              h="60px"
+                              objectFit="cover"
+                              borderRadius="md"
+                            />
+                            <VStack align="start" spacing={2} flex={1}>
+                              <VStack align="start" spacing={1}>
+                                <Text fontWeight="bold" fontSize="md">
+                                  {store.name}
+                                </Text>
+                                <Text fontSize="sm" color={mutedColor} noOfLines={2}>
+                                  {store.description}
+                                </Text>
+                              </VStack>
+                              
+                              <HStack spacing={4} wrap="wrap">
+                                <Text fontSize="xs" color={mutedColor}>
+                                  <strong>Delivery:</strong> {store.deliveryTime}
+                                </Text>
+                                <Text fontSize="xs" color={mutedColor}>
+                                  <strong>Min:</strong> {store.minOrder}
+                                </Text>
+                                <Text fontSize="xs" color={mutedColor}>
+                                  <strong>Fee:</strong> {store.deliveryFee}
+                                </Text>
+                              </HStack>
+                              
+                              <Button
+                                size="sm"
+                                style={{ backgroundColor: brandColor, color: 'white' }}
+                                _hover={{ backgroundColor: '#2da89c' }}
+                                rightIcon={<ExternalLinkIcon />}
+                                onClick={() => handlePurchaseFromStore(store)}
+                              >
+                                Shop at {store.name}
+                              </Button>
+                            </VStack>
+                          </HStack>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </SimpleGrid>
+                </Box>
+              )}
+              
+              {selectedItemsForPurchase.size === 0 && (
+                <Box w="full" textAlign="center" py={8}>
+                  <Text color={mutedColor} fontSize="sm">
+                    Select items above to see store options
+                  </Text>
+                </Box>
+              )}
+            </VStack>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button variant="ghost" onClick={onFulfillClose}>
+              Close
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   )
 }

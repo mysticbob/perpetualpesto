@@ -15,7 +15,7 @@ import {
   useColorModeValue,
   Divider
 } from '@chakra-ui/react'
-import { ExternalLinkIcon, LinkIcon, EditIcon, DownloadIcon } from '@chakra-ui/icons'
+import { ExternalLinkIcon, LinkIcon, EditIcon, DownloadIcon } from './icons/CustomIcons'
 import RecipeExtractor from './RecipeExtractor'
 
 interface AddRecipePageProps {
@@ -219,7 +219,7 @@ export default function AddRecipePage({ onBack }: AddRecipePageProps) {
           <Card bg={cardBg} w="full">
             <CardBody>
               <VStack spacing={4} align="start">
-                <Heading size="md">💡 Import Tips</Heading>
+                <Heading size="md">Import Tips</Heading>
                 <VStack spacing={2} align="start" color={mutedColor}>
                   <Text>• Most recipe websites work great with URL import</Text>
                   <Text>• Look for sites with structured recipe data (schema.org)</Text>

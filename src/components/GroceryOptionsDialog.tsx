@@ -23,7 +23,7 @@ import {
   useToast
 } from '@chakra-ui/react'
 import { useState } from 'react'
-import { CheckIcon, ExternalLinkIcon } from '@chakra-ui/icons'
+import { CheckIcon, ExternalLinkIcon } from './icons/CustomIcons'
 import { usePantry } from '../contexts/PantryContext'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { formatIngredientAmount } from '../utils/units'
@@ -137,7 +137,7 @@ export default function GroceryOptionsDialog({
             {pantryItems.length > 0 && (
               <Box w="full">
                 <Text fontWeight="medium" mb={3} color="green.600">
-                  ✅ You have these ingredients:
+                  You have these ingredients:
                 </Text>
                 <Box bg={cardBg} p={4} borderRadius="md" maxH="150px" overflowY="auto">
                   <List spacing={2}>
@@ -162,7 +162,7 @@ export default function GroceryOptionsDialog({
             {missingItems.length > 0 && (
               <Box w="full">
                 <Text fontWeight="medium" mb={3} color="orange.600">
-                  🛒 You need to buy:
+                  You need to buy:
                 </Text>
                 <Box bg={cardBg} p={4} borderRadius="md" maxH="150px" overflowY="auto">
                   <List spacing={2}>

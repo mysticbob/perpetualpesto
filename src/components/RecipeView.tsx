@@ -18,7 +18,7 @@ import {
   useDisclosure
 } from '@chakra-ui/react'
 import { useState, useEffect, useRef } from 'react'
-import { CloseIcon, TimeIcon, CalendarIcon, EditIcon } from '@chakra-ui/icons'
+import { CloseIcon, TimeIcon, CalendarIcon, EditIcon } from './icons/CustomIcons'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { formatIngredientAmount } from '../utils/units'
 import IngredientAvailability from './IngredientAvailability'
@@ -112,11 +112,11 @@ export default function RecipeView({ recipe, onClose, onStartCooking }: RecipeVi
   }, [])
 
   return (
-    <Box minH="100vh" bg={bgColor}>
-      {/* Header */}
-      <Box p={6} borderBottom="1px" borderColor={borderColor}>
-        <HStack justify="space-between" align="start">
-          <VStack align="start" spacing={2} flex={1}>
+    <Box h="100vh" bg={bgColor} display="flex" flexDirection="column">
+      {/* Compact Header */}
+      <Box p={4} borderBottom="1px" borderColor={borderColor} flexShrink={0}>
+        <VStack align="start" spacing={3}>
+          <HStack justify="space-between" w="full">
             <HStack>
               <IconButton
                 aria-label="Close recipe"
@@ -125,91 +125,87 @@ export default function RecipeView({ recipe, onClose, onStartCooking }: RecipeVi
                 variant="ghost"
                 onClick={onClose}
               />
-              <Heading size="lg">{recipe.name}</Heading>
+              <Heading size="md">{recipe.name}</Heading>
             </HStack>
             
-            {recipe.description && (
-              <Text color={mutedColor} fontSize="md" maxW="2xl">
-                {recipe.description}
-              </Text>
+            {recipe.imageUrl && (
+              <Image
+                src={recipe.imageUrl}
+                alt={recipe.name}
+                w="80px"
+                h="60px"
+                objectFit="cover"
+                borderRadius="md"
+              />
             )}
-
-            <HStack spacing={4} wrap="wrap">
-              <HStack spacing={1}>
-                <TimeIcon color={mutedColor} />
-                <Text fontSize="sm" color={mutedColor}>vera.cooking</Text>
-              </HStack>
-              <HStack spacing={1}>
-                <Text fontSize="sm" color={mutedColor}>👥 {recipe.servings || 4}</Text>
-              </HStack>
-              {recipe.prepTime && (
-                <Badge colorScheme="blue" px={2} py={1}>
-                  {recipe.prepTime}min PREP
-                </Badge>
-              )}
-              {recipe.cookTime && (
-                <Badge colorScheme="orange" px={2} py={1}>
-                  {recipe.cookTime}min COOK
-                </Badge>
-              )}
-              {recipe.totalTime && (
-                <Badge colorScheme="green" px={2} py={1}>
-                  {recipe.totalTime}min TOTAL
-                </Badge>
-              )}
-            </HStack>
-
-            <HStack spacing={2} mt={2}>
-              <Button colorScheme="red" size="sm" leftIcon={<TimeIcon />} onClick={onStartCooking}>
-                Cook
-              </Button>
-              <Button 
-                size="sm" 
-                leftIcon={<EditIcon />} 
-                variant="outline"
-                onClick={onOpenGroceryDialog}
-              >
-                Groceries
-              </Button>
-              <Button size="sm" leftIcon={<CalendarIcon />} variant="outline">
-                Adjust
-              </Button>
-            </HStack>
-          </VStack>
-
-          {recipe.imageUrl && (
-            <Image
-              src={recipe.imageUrl}
-              alt={recipe.name}
-              w="200px"
-              h="150px"
-              objectFit="cover"
-              borderRadius="md"
-            />
+          </HStack>
+          
+          {recipe.description && (
+            <Text color={mutedColor} fontSize="sm" noOfLines={2}>
+              {recipe.description}
+            </Text>
           )}
-        </HStack>
+
+          <HStack spacing={3} wrap="wrap" fontSize="xs">
+            <HStack spacing={1}>
+              <Text color={mutedColor}>👥 {recipe.servings || 4}</Text>
+            </HStack>
+            {recipe.prepTime && (
+              <Badge colorScheme="blue" size="sm">
+                {recipe.prepTime}m PREP
+              </Badge>
+            )}
+            {recipe.cookTime && (
+              <Badge colorScheme="orange" size="sm">
+                {recipe.cookTime}m COOK
+              </Badge>
+            )}
+            {recipe.totalTime && (
+              <Badge colorScheme="green" size="sm">
+                {recipe.totalTime}m TOTAL
+              </Badge>
+            )}
+          </HStack>
+
+          <HStack spacing={2}>
+            <Button colorScheme="red" size="sm" leftIcon={<TimeIcon />} onClick={onStartCooking}>
+              Cook
+            </Button>
+            <Button 
+              size="sm" 
+              leftIcon={<EditIcon />} 
+              variant="outline"
+              onClick={onOpenGroceryDialog}
+            >
+              Groceries
+            </Button>
+            <Button size="sm" leftIcon={<CalendarIcon />} variant="outline">
+              Adjust
+            </Button>
+          </HStack>
+        </VStack>
       </Box>
 
       {/* Main Content */}
-      <Grid templateColumns="1fr 300px" minH="calc(100vh - 200px)">
+      <Grid templateColumns="1fr 280px" flex={1} minH={0}>
         {/* Instructions */}
-        <GridItem>
-          <VStack align="start" spacing={6} p={6} h="full" overflow="auto" ref={instructionsRef}>
-            <Heading size="md">Instructions</Heading>
+        <GridItem overflow="auto">
+          <VStack align="start" spacing={4} p={4} h="full">
+            <Heading size="sm">Instructions</Heading>
             
-            <OrderedList spacing={6} w="full">
+            <OrderedList spacing={4} w="full">
               {recipe.instructions.map((instruction, index) => (
                 <ListItem
                   key={instruction.id}
                   data-step={index}
-                  p={4}
+                  p={3}
                   borderRadius="md"
                   bg={index === activeStep ? activeStepBg : 'transparent'}
                   border="2px solid"
                   borderColor={index === activeStep ? activeStepBorder : 'transparent'}
                   transition="all 0.2s"
                 >
-                  <Text fontSize="md" lineHeight="1.6">
+                  <Text fontSize="sm" lineHeight="1.5">
                     {instruction.step}
                   </Text>
                 </ListItem>
@@ -219,41 +215,47 @@ export default function RecipeView({ recipe, onClose, onStartCooking }: RecipeVi
         </GridItem>
 
         {/* Ingredients Sidebar */}
-        <GridItem borderLeft="1px" borderColor={borderColor}>
-          <VStack align="start" spacing={4} p={6} h="full" overflow="auto">
-            <Heading size="md">Ingredients</Heading>
+        <GridItem borderLeft="1px" borderColor={borderColor} overflow="auto">
+          <VStack align="start" spacing={3} p={4} h="full">
+            <Heading size="sm">Ingredients</Heading>
             
-            <List spacing={3} w="full">
+            <List spacing={2} w="full">
               {recipe.ingredients.map((ingredient) => (
                 <ListItem key={ingredient.id}>
                   <HStack
-                    spacing={3}
+                    spacing={2}
                     cursor="pointer"
                     onClick={() => toggleIngredient(ingredient.id)}
                     opacity={checkedIngredients.has(ingredient.id) ? 0.5 : 1}
                     transition="opacity 0.2s"
+                    p={2}
+                    borderRadius="sm"
+                    _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}
                   >
                     <Box
-                      w="4"
-                      h="4"
+                      w="3"
+                      h="3"
                       borderRadius="sm"
                       bg={checkedIngredients.has(ingredient.id) ? 'green.500' : 'transparent'}
                       border="2px solid"
                       borderColor={checkedIngredients.has(ingredient.id) ? 'green.500' : 'gray.300'}
+                      flexShrink={0}
                     />
-                    <VStack align="start" spacing={0} flex={1}>
-                      <Text fontSize="sm" fontWeight="medium">
+                    <VStack align="start" spacing={0} flex={1} minW={0}>
+                      <Text fontSize="xs" fontWeight="medium" noOfLines={1}>
                         {formatIngredientAmount(ingredient.amount, ingredient.unit, preferences.unitSystem)}
                       </Text>
-                      <Text fontSize="sm" color={mutedColor}>
+                      <Text fontSize="xs" color={mutedColor} noOfLines={1}>
                         {ingredient.name}
                       </Text>
                     </VStack>
-                    <IngredientAvailability 
-                      ingredientName={ingredient.name}
-                      neededAmount={ingredient.amount}
-                      neededUnit={ingredient.unit}
-                    />
+                    <Box flexShrink={0}>
+                      <IngredientAvailability 
+                        ingredientName={ingredient.name}
+                        neededAmount={ingredient.amount}
+                        neededUnit={ingredient.unit}
+                      />
+                    </Box>
                   </HStack>
                 </ListItem>
               ))}

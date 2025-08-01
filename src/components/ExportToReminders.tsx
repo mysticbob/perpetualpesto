@@ -16,7 +16,7 @@ import {
   useDisclosure
 } from '@chakra-ui/react'
 import { useState } from 'react'
-import { ExternalLinkIcon, CopyIcon, CheckIcon } from '@chakra-ui/icons'
+import { ExternalLinkIcon, CopyIcon, CheckIcon } from './icons/CustomIcons'
 
 interface GroceryItem {
   id: string
@@ -39,12 +39,10 @@ export default function ExportToReminders({ items, recipeName }: ExportToReminde
   const pendingItems = items.filter(item => !item.completed)
 
   const formatForReminders = () => {
-    const title = recipeName ? `${recipeName} - Grocery List` : 'Grocery List'
-    const itemsList = pendingItems
-      .map(item => `• ${item.amount || ''} ${item.name}`.trim())
+    // Create separate reminder items, one per line
+    return pendingItems
+      .map(item => `${item.amount || ''} ${item.name}`.trim())
       .join('\n')
-    
-    return `${title}\n\n${itemsList}`
   }
 
   const copyToClipboard = async () => {
@@ -56,7 +54,7 @@ export default function ExportToReminders({ items, recipeName }: ExportToReminde
       
       toast({
         title: 'Copied to clipboard!',
-        description: 'Now you can paste this into the Reminders app',
+        description: `${pendingItems.length} items copied as separate reminders`,
         status: 'success',
         duration: 3000,
       })
@@ -88,26 +86,8 @@ export default function ExportToReminders({ items, recipeName }: ExportToReminde
   }
 
   const openRemindersApp = () => {
-    // Try to open Reminders app (iOS/macOS)
-    const reminderText = pendingItems
-      .map(item => `${item.amount || ''} ${item.name}`.trim())
-      .join(', ')
-    
-    const title = recipeName ? `${recipeName} Groceries` : 'Grocery List'
-    
-    // iOS Reminders URL scheme
-    const iosUrl = `x-apple-reminderkit://REMCDReminder?title=${encodeURIComponent(title)}&notes=${encodeURIComponent(reminderText)}`
-    
-    // Try to open, fallback to instructions
-    try {
-      window.open(iosUrl, '_blank')
-      setTimeout(() => {
-        // If still here after 1 second, probably didn't work
-        onOpen()
-      }, 1000)
-    } catch (error) {
-      onOpen()
-    }
+    // For multiple separate reminders, we'll use the share API or copy
+    shareList()
   }
 
   if (pendingItems.length === 0) {
@@ -158,11 +138,11 @@ export default function ExportToReminders({ items, recipeName }: ExportToReminde
                 <Text fontSize="sm">
                   1. Open the Reminders app
                   <br />
-                  2. Tap "+" to create a new list or reminder
+                  2. Tap "+" to create a new reminder
                   <br />
                   3. Paste the copied text
                   <br />
-                  4. Each item will become a separate reminder
+                  4. Each line will become a separate reminder automatically
                 </Text>
               </VStack>
 
@@ -175,7 +155,7 @@ export default function ExportToReminders({ items, recipeName }: ExportToReminde
                   <br />
                   3. Paste the copied text
                   <br />
-                  4. Press Enter to create multiple reminders
+                  4. Each line will create a separate reminder
                 </Text>
               </VStack>
 

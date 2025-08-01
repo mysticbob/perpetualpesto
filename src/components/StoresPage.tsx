@@ -20,7 +20,7 @@ import {
   Link
 } from '@chakra-ui/react'
 import { useState } from 'react'
-import { ExternalLinkIcon, CheckIcon } from '@chakra-ui/icons'
+import { ExternalLinkIcon, CheckIcon } from './icons/CustomIcons'
 
 interface Store {
   id: string

@@ -72,6 +72,24 @@ function extractFromJsonLd($: cheerio.CheerioAPI): ExtractedRecipe | null {
       
       for (const item of recipes) {
         if (item['@type'] === 'Recipe' || (Array.isArray(item['@type']) && item['@type'].includes('Recipe'))) {
+          let imageUrl = undefined
+          
+          // Handle various image formats in JSON-LD
+          if (item.image) {
+            if (typeof item.image === 'string') {
+              imageUrl = item.image
+            } else if (Array.isArray(item.image)) {
+              imageUrl = item.image[0]?.url || item.image[0]
+            } else if (item.image.url) {
+              imageUrl = item.image.url
+            }
+          }
+          
+          // Fallback to comprehensive image extraction if no JSON-LD image found
+          if (!imageUrl) {
+            imageUrl = extractRecipeImage($, item.name || '')
+          }
+          
           return {
             name: item.name || '',
             description: item.description || '',
@@ -79,7 +97,7 @@ function extractFromJsonLd($: cheerio.CheerioAPI): ExtractedRecipe | null {
             cookTime: parseTime(item.cookTime),
             totalTime: parseTime(item.totalTime),
             servings: parseInt(item.recipeYield) || undefined,
-            imageUrl: typeof item.image === 'string' ? item.image : item.image?.url,
+            imageUrl,
             ingredients: (item.recipeIngredient || []).map((ing: string) => ({
               name: ing,
               amount: extractAmount(ing),
@@ -106,6 +124,11 @@ function extractFromMicrodata($: cheerio.CheerioAPI): ExtractedRecipe | null {
   const name = recipeEl.find('[itemprop="name"]').first().text().trim()
   const description = recipeEl.find('[itemprop="description"]').first().text().trim()
   
+  // Enhanced image extraction for microdata
+  let imageUrl = recipeEl.find('[itemprop="image"]').attr('src') || 
+                 recipeEl.find('[itemprop="image"]').attr('data-src') ||
+                 recipeEl.find('[itemprop="image"]').attr('content')
+  
   const ingredients = recipeEl.find('[itemprop="recipeIngredient"]').map((_, el) => {
     const text = $(el).text().trim()
     return {
@@ -119,10 +142,15 @@ function extractFromMicrodata($: cheerio.CheerioAPI): ExtractedRecipe | null {
     step: $(el).text().trim()
   })).get()
 
+  // Fallback to comprehensive image extraction if no microdata image found
+  if (!imageUrl) {
+    imageUrl = extractRecipeImage($, name)
+  }
+
   return {
     name,
     description: description || undefined,
-    imageUrl: recipeEl.find('[itemprop="image"]').attr('src'),
+    imageUrl,
     ingredients,
     instructions
   }
@@ -134,6 +162,9 @@ function extractHeuristically($: cheerio.CheerioAPI): ExtractedRecipe | null {
                $('.recipe-title, .entry-title, .post-title').first().text().trim()
   
   if (!name) return null
+
+  // Enhanced image extraction using multiple strategies
+  let imageUrl = extractRecipeImage($, name)
 
   // Look for ingredients in common containers
   const ingredientSelectors = [
@@ -185,9 +216,145 @@ function extractHeuristically($: cheerio.CheerioAPI): ExtractedRecipe | null {
 
   return {
     name,
+    imageUrl,
     ingredients,
     instructions
   }
+}
+
+function extractRecipeImage($: cheerio.CheerioAPI, recipeName: string): string | undefined {
+  // Strategy 1: Look for Open Graph image
+  let imageUrl = $('meta[property="og:image"]').attr('content')
+  if (imageUrl && isValidImageUrl(imageUrl)) return imageUrl
+  
+  // Strategy 2: Look for Twitter Card image
+  imageUrl = $('meta[name="twitter:image"]').attr('content')
+  if (imageUrl && isValidImageUrl(imageUrl)) return imageUrl
+  
+  // Strategy 3: Look for recipe-specific image containers (enhanced for modern sites)
+  const recipeImageSelectors = [
+    // NY Times specific selectors
+    '.recipe-photo img',
+    '.recipe-image img', 
+    '.nyt-recipe-image img',
+    'article img:first-child',
+    '.recipe-header img',
+    '.recipe-top-image img',
+    
+    // General recipe site selectors
+    '.featured-image img',
+    '.recipe-card img',
+    '.entry-content img:first-child',
+    '.post-content img:first-child',
+    '.wp-post-image',
+    '[class*="recipe"] img:first-child',
+    '[class*="hero"] img',
+    '[class*="banner"] img',
+    '.content img:first-child',
+    
+    // Modern lazy-loading and responsive images
+    'picture img',
+    'figure img',
+    '.img-responsive',
+    '[role="img"]'
+  ]
+  
+  for (const selector of recipeImageSelectors) {
+    const img = $(selector).first()
+    if (img.length) {
+      imageUrl = img.attr('src') || 
+                  img.attr('data-src') || 
+                  img.attr('data-lazy-src') ||
+                  img.attr('data-original') ||
+                  img.attr('srcset')?.split(',')[0]?.trim()?.split(' ')[0]
+      if (imageUrl && isValidImageUrl(imageUrl)) return imageUrl
+    }
+  }
+  
+  // Strategy 4: Look for images with alt text containing recipe name or food keywords
+  const foodKeywords = ['recipe', 'food', 'dish', 'cooking', 'meal', 'kitchen']
+  const nameWords = recipeName.toLowerCase().split(' ')
+  
+  $('img').each((_, img) => {
+    const $img = $(img)
+    const alt = ($img.attr('alt') || '').toLowerCase()
+    const src = $img.attr('src') || 
+                $img.attr('data-src') || 
+                $img.attr('data-lazy-src') ||
+                $img.attr('data-original') ||
+                $img.attr('srcset')?.split(',')[0]?.trim()?.split(' ')[0]
+    
+    if (src && isValidImageUrl(src)) {
+      // Check if alt text contains recipe name words
+      if (nameWords.some(word => word.length > 3 && alt.includes(word))) {
+        imageUrl = src
+        return false // Break out of each loop
+      }
+      
+      // Check if alt text contains food keywords
+      if (foodKeywords.some(keyword => alt.includes(keyword))) {
+        imageUrl = src
+        return false
+      }
+    }
+  })
+  
+  if (imageUrl && isValidImageUrl(imageUrl)) return imageUrl
+  
+  // Strategy 5: Fall back to first reasonable-sized image
+  const firstImg = $('img').filter((_, img) => {
+    const $img = $(img)
+    const src = $img.attr('src') || 
+                $img.attr('data-src') ||
+                $img.attr('srcset')?.split(',')[0]?.trim()?.split(' ')[0]
+    const width = parseInt($img.attr('width') || '0')
+    const height = parseInt($img.attr('height') || '0')
+    
+    if (!src || !isValidImageUrl(src)) return false
+    
+    // Skip small images (likely icons, logos, etc.)
+    if ((width > 0 && width < 200) || (height > 0 && height < 150)) {
+      return false
+    }
+    
+    // Skip images with certain patterns in src that are likely not recipe images
+    if (src.includes('logo') || src.includes('icon') || src.includes('avatar') || src.includes('button') || src.includes('social')) {
+      return false
+    }
+    
+    return true
+  }).first()
+  
+  if (firstImg.length) {
+    const finalUrl = firstImg.attr('src') || 
+                     firstImg.attr('data-src') || 
+                     firstImg.attr('data-lazy-src') ||
+                     firstImg.attr('srcset')?.split(',')[0]?.trim()?.split(' ')[0]
+    if (finalUrl && isValidImageUrl(finalUrl)) return finalUrl
+  }
+  
+  return undefined
+}
+
+function isValidImageUrl(url: string): boolean {
+  if (!url) return false
+  
+  // Remove any query parameters and fragments for extension check
+  const urlWithoutParams = url.split('?')[0].split('#')[0]
+  
+  // Check for valid image extensions
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.svg']
+  const hasImageExtension = imageExtensions.some(ext => urlWithoutParams.toLowerCase().endsWith(ext))
+  
+  // Also accept URLs that don't have extensions but are from image domains or contain image-like paths
+  const isImagePath = url.includes('/images/') || 
+                      url.includes('/photos/') || 
+                      url.includes('/recipe') ||
+                      url.includes('nyt.com') ||
+                      url.includes('cloudinary') ||
+                      url.includes('amazonaws.com')
+  
+  return hasImageExtension || isImagePath
 }
 
 function parseTime(timeStr: string): number | undefined {

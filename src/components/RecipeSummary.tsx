@@ -27,8 +27,10 @@ import {
   GridItem
 } from '@chakra-ui/react'
 import { useState } from 'react'
-import { CloseIcon, TimeIcon, EditIcon } from '@chakra-ui/icons'
+import { CloseIcon, TimeIcon, EditIcon } from './icons/CustomIcons'
 import { usePreferences } from '../contexts/PreferencesContext'
+import { useGrocery } from '../contexts/GroceryContext'
+import { usePantry } from '../contexts/PantryContext'
 import { formatIngredientAmount } from '../utils/units'
 import IngredientAvailability from './IngredientAvailability'
 import GroceryOptionsDialog from './GroceryOptionsDialog'
@@ -42,6 +44,7 @@ interface Recipe {
   totalTime?: number
   servings?: number
   imageUrl?: string
+  sourceUrl?: string
   ingredients: Array<{
     id: string
     name: string
@@ -70,6 +73,8 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
     onClose: onCloseGroceryDialog 
   } = useDisclosure()
   const { preferences } = usePreferences()
+  const { addGroceryItem } = useGrocery()
+  const { getItemAvailability } = usePantry()
   
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
@@ -78,6 +83,12 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
 
   // Calculate scaling factor for ingredients
   const scalingFactor = servings / (recipe.servings || 4)
+
+  // Check for freezer ingredients
+  const freezerIngredients = recipe.ingredients.filter(ingredient => {
+    const availability = getItemAvailability(ingredient.name, ingredient.amount, ingredient.unit)
+    return availability.available && availability.item?.location === 'freezer'
+  })
 
   const scaleAmount = (amount?: string): string => {
     if (!amount) return ''
@@ -165,6 +176,17 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
               >
                 Cook
               </Button>
+              {recipe.sourceUrl && (
+                <Button 
+                  size="md" 
+                  colorScheme="blue"
+                  variant="outline"
+                  onClick={() => window.open(recipe.sourceUrl, '_blank')}
+                  px={6}
+                >
+                  Original
+                </Button>
+              )}
               <Button 
                 size="md" 
                 leftIcon={<EditIcon />} 
@@ -214,16 +236,44 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
             {/* The night before section */}
             <Box w="full">
               <Heading size="md" mb={4}>The night before</Heading>
-              <Box bg={cardBg} p={6} borderRadius="md" borderLeft="4px solid" borderLeftColor="blue.400">
-                <Text color={mutedColor} lineHeight="1.6">
-                  Put the beans in a large pot and cover them with plenty of water. Soak overnight (or at least 12 hours).
-                </Text>
-              </Box>
+              <VStack spacing={4} align="start">
+                <Box bg={cardBg} p={6} borderRadius="md" borderLeft="4px solid" borderLeftColor="blue.400">
+                  <Text color={mutedColor} lineHeight="1.6">
+                    Put the beans in a large pot and cover them with plenty of water. Soak overnight (or at least 12 hours).
+                  </Text>
+                </Box>
+                
+                {/* Freezer thawing reminder */}
+                {freezerIngredients.length > 0 && (
+                  <Box bg={cardBg} p={6} borderRadius="md" borderLeft="4px solid" borderLeftColor="purple.400">
+                    <VStack spacing={3} align="start">
+                      <HStack spacing={2}>
+                        <Text fontSize="sm" fontWeight="bold" color="purple.600">
+                          ❄️ Freezer Items Reminder
+                        </Text>
+                      </HStack>
+                      <Text color={mutedColor} lineHeight="1.6">
+                        Remove these items from the freezer to allow them to thaw before cooking:
+                      </Text>
+                      <VStack spacing={1} align="start" pl={4}>
+                        {freezerIngredients.map((ingredient, index) => {
+                          const scaledAmount = scaleAmount(ingredient.amount)
+                          return (
+                            <Text key={index} fontSize="sm" color={mutedColor}>
+                              • {scaledAmount} {ingredient.unit} {ingredient.name}
+                            </Text>
+                          )
+                        })}
+                      </VStack>
+                    </VStack>
+                  </Box>
+                )}
+              </VStack>
             </Box>
 
             {/* Cooking instructions */}
             <Box w="full">
-              <Heading size="md" mb={6}>Cooking the chili</Heading>
+              <Heading size="md" mb={6}>Recipe Progress</Heading>
               <VStack align="start" spacing={6} w="full">
                 {recipe.instructions.map((instruction, index) => (
                   <HStack key={instruction.id} align="start" spacing={4} w="full">
@@ -259,28 +309,35 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
           <VStack align="start" spacing={6} h="full">
             <Heading size="md">Ingredients</Heading>
             
-            <List spacing={4} w="full">
-              {recipe.ingredients.map((ingredient) => {
+            <List spacing={0} w="full">
+              {recipe.ingredients.map((ingredient, index) => {
                 const scaledAmount = scaleAmount(ingredient.amount)
                 const formattedAmount = formatIngredientAmount(scaledAmount, ingredient.unit, preferences.unitSystem)
+                const isEven = index % 2 === 0
                 
                 return (
                   <ListItem key={ingredient.id}>
-                    <HStack spacing={3} w="full" align="start">
-                      <VStack align="start" spacing={1} flex={1}>
-                        <Text fontSize="md" fontWeight="bold" color="orange.500">
-                          {formattedAmount}
-                        </Text>
-                        <Text fontSize="sm" color={mutedColor}>
-                          {ingredient.name}
-                        </Text>
-                      </VStack>
-                      <IngredientAvailability 
-                        ingredientName={ingredient.name}
-                        neededAmount={scaledAmount}
-                        neededUnit={ingredient.unit}
-                      />
-                    </HStack>
+                    <Box
+                      bg={isEven ? 'transparent' : useColorModeValue('gray.50', 'gray.750')}
+                      p={3}
+                      borderRadius="md"
+                    >
+                      <HStack spacing={3} w="full" align="start">
+                        <VStack align="start" spacing={1} flex={1}>
+                          <Text fontSize="md" fontWeight="bold" color="orange.500">
+                            {formattedAmount}
+                          </Text>
+                          <Text fontSize="sm" color={mutedColor}>
+                            {ingredient.name}
+                          </Text>
+                        </VStack>
+                        <IngredientAvailability 
+                          ingredientName={ingredient.name}
+                          neededAmount={scaledAmount}
+                          neededUnit={ingredient.unit}
+                        />
+                      </HStack>
+                    </Box>
                   </ListItem>
                 )
               })}
@@ -343,7 +400,42 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
         recipe={recipe}
         onCreateGroceryList={(option) => {
           console.log('Creating grocery list with option:', option)
-          // Here you would implement the actual grocery list creation logic
+          
+          // Get ingredient analysis
+          const ingredientsToAdd = recipe.ingredients.filter(ingredient => {
+            const availability = getItemAvailability(ingredient.name, ingredient.amount, ingredient.unit)
+            
+            switch (option) {
+              case 'exclude-pantry':
+                // Smart list - only add items we don't have
+                return !availability.available
+              case 'include-all':
+                // Complete list - add all items
+                return true
+              case 'replace-pantry':
+                // Fresh ingredients - add all items (ignoring pantry)
+                return true
+              default:
+                return false
+            }
+          })
+          
+          // Add each ingredient to grocery list
+          ingredientsToAdd.forEach(ingredient => {
+            const scaledAmount = scaleAmount(ingredient.amount)
+            addGroceryItem({
+              name: ingredient.name,
+              amount: scaledAmount,
+              unit: ingredient.unit,
+              category: ingredient.name.includes('oil') ? 'oils' : 
+                       ingredient.name.includes('pepper') || ingredient.name.includes('salt') ? 'spices' :
+                       ingredient.name.includes('tomato') || ingredient.name.includes('can') ? 'canned' :
+                       ingredient.name.includes('bean') || ingredient.name.includes('lentil') ? 'legumes' :
+                       'general'
+            })
+          })
+          
+          console.log(`Added ${ingredientsToAdd.length} items to grocery list`)
           onGroceries() // Navigate to grocery list page
         }}
       />
