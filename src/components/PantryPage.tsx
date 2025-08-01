@@ -135,11 +135,16 @@ export default function PantryPage({ onBack }: PantryPageProps) {
   }
 
   const updateLocationName = (locationId: string, newName: string) => {
-    setPantryData(prev => prev.map(location => 
-      location.id === locationId 
-        ? { ...location, name: newName }
-        : location
-    ))
+    console.log('updateLocationName called:', locationId, newName)
+    setPantryData(prev => {
+      const updated = prev.map(location => 
+        location.id === locationId 
+          ? { ...location, name: newName }
+          : location
+      )
+      console.log('Updated pantry data:', updated)
+      return updated
+    })
   }
 
   const addNewItem = () => {
@@ -566,7 +571,10 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                   <HStack spacing={3}>
                     <Editable
                       value={location.name}
-                      onSubmit={(value) => updateLocationName(location.id, value)}
+                      onSubmit={(value) => {
+                        console.log('Location edit submitted:', value)
+                        updateLocationName(location.id, value)
+                      }}
                       fontSize="xl"
                       fontWeight="bold"
                       isPreviewFocusable={true}
@@ -575,7 +583,6 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                       alignItems="center"
                       onEdit={() => console.log('Location edit started:', location.name)}
                       onCancel={() => console.log('Location edit cancelled')}
-                      onChange={(value) => console.log('Location name changing:', value)}
                     >
                       <HStack spacing={2} alignItems="center">
                         <EditablePreview />
