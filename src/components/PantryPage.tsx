@@ -37,7 +37,7 @@ import {
   Flex,
   useToast
 } from '@chakra-ui/react'
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { AddIcon, EditIcon, DeleteIcon, CheckIcon, CloseIcon, GroceryIcon } from './icons/CustomIcons'
 import { SearchIcon } from '@chakra-ui/icons'
 import { usePreferences } from '../contexts/PreferencesContext'
@@ -81,6 +81,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
   const [newItem, setNewItem] = useState<Partial<PantryItem>>({})
   const [editItem, setEditItem] = useState<PantryItem | null>(null)
   const [inlineEditItem, setInlineEditItem] = useState<PantryItem | null>(null)
+  const nameInputRef = useRef<HTMLInputElement>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure()
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure()
@@ -205,6 +206,17 @@ export default function PantryPage({ onBack }: PantryPageProps) {
   const handleDoubleClick = (item: PantryItem) => {
     setInlineEditItem({ ...item })
   }
+
+  // Focus the input when inline edit item changes
+  useEffect(() => {
+    if (inlineEditItem && nameInputRef.current) {
+      // Use a timeout to ensure the component has rendered
+      setTimeout(() => {
+        nameInputRef.current?.focus()
+        nameInputRef.current?.select()
+      }, 100)
+    }
+  }, [inlineEditItem])
 
   const saveInlineEdit = () => {
     if (!inlineEditItem) return
@@ -610,12 +622,23 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                             <VStack spacing={3}>
                               <HStack spacing={3} w="full">
                                 <Input
+                                  ref={nameInputRef}
                                   value={inlineEditItem.name || ''}
-                                  onChange={(e) => updateInlineEditItem('name', e.target.value)}
+                                  onChange={(e) => {
+                                    console.log('Name input onChange:', e.target.value)
+                                    updateInlineEditItem('name', e.target.value)
+                                  }}
                                   placeholder="Item name"
                                   size="sm"
                                   flex={2}
-                                  autoFocus
+                                  isReadOnly={false}
+                                  isDisabled={false}
+                                  tabIndex={0}
+                                  onFocus={(e) => {
+                                    console.log('Name input focused')
+                                    e.target.select()
+                                  }}
+                                  onKeyDown={(e) => console.log('Key pressed in name input:', e.key)}
                                 />
                                 <Input
                                   value={inlineEditItem.amount || ''}
@@ -623,6 +646,9 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                                   placeholder="Amount"
                                   size="sm"
                                   flex={1}
+                                  isReadOnly={false}
+                                  isDisabled={false}
+                                  tabIndex={1}
                                 />
                                 <Select
                                   value={inlineEditItem.unit || ''}
