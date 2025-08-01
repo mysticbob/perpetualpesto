@@ -573,10 +573,16 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                       selectAllOnFocus={true}
                       display="flex"
                       alignItems="center"
+                      onEdit={() => console.log('Location edit started:', location.name)}
+                      onCancel={() => console.log('Location edit cancelled')}
+                      onChange={(value) => console.log('Location name changing:', value)}
                     >
                       <HStack spacing={2} alignItems="center">
                         <EditablePreview />
-                        <EditableInput />
+                        <EditableInput 
+                          onFocus={() => console.log('Location input focused')}
+                          onKeyDown={(e) => console.log('Key pressed in location input:', e.key)}
+                        />
                         <EditableControls />
                       </HStack>
                     </Editable>
