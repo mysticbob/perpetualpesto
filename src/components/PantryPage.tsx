@@ -81,6 +81,8 @@ export default function PantryPage({ onBack }: PantryPageProps) {
   const [newItem, setNewItem] = useState<Partial<PantryItem>>({})
   const [editItem, setEditItem] = useState<PantryItem | null>(null)
   const [inlineEditItem, setInlineEditItem] = useState<PantryItem | null>(null)
+  const [editingLocationId, setEditingLocationId] = useState<string | null>(null)
+  const [editingLocationName, setEditingLocationName] = useState<string>('')
   const nameInputRef = useRef<HTMLInputElement>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure()
@@ -570,10 +572,28 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                 <HStack justify="space-between" mb={4} pb={2} borderBottom="2px" borderColor={borderColor}>
                   <HStack spacing={3}>
                     <Editable
-                      value={location.name}
+                      value={editingLocationId === location.id ? editingLocationName : location.name}
                       onSubmit={(value) => {
                         console.log('Location edit submitted:', value)
                         updateLocationName(location.id, value)
+                        setEditingLocationId(null)
+                        setEditingLocationName('')
+                      }}
+                      onEdit={() => {
+                        console.log('Location edit started:', location.name)
+                        setEditingLocationId(location.id)
+                        setEditingLocationName(location.name)
+                      }}
+                      onCancel={() => {
+                        console.log('Location edit cancelled')
+                        setEditingLocationId(null)
+                        setEditingLocationName('')
+                      }}
+                      onChange={(value) => {
+                        console.log('Location name changing to:', value)
+                        if (editingLocationId === location.id) {
+                          setEditingLocationName(value)
+                        }
                       }}
                       fontSize="xl"
                       fontWeight="bold"
@@ -581,8 +601,6 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                       selectAllOnFocus={true}
                       display="flex"
                       alignItems="center"
-                      onEdit={() => console.log('Location edit started:', location.name)}
-                      onCancel={() => console.log('Location edit cancelled')}
                     >
                       <HStack spacing={2} alignItems="center">
                         <EditablePreview />
