@@ -137,16 +137,11 @@ export default function PantryPage({ onBack }: PantryPageProps) {
   }
 
   const updateLocationName = (locationId: string, newName: string) => {
-    console.log('updateLocationName called:', locationId, newName)
-    setPantryData(prev => {
-      const updated = prev.map(location => 
-        location.id === locationId 
-          ? { ...location, name: newName }
-          : location
-      )
-      console.log('Updated pantry data:', updated)
-      return updated
-    })
+    setPantryData(prev => prev.map(location => 
+      location.id === locationId 
+        ? { ...location, name: newName }
+        : location
+    ))
   }
 
   const addNewItem = () => {
@@ -574,23 +569,19 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                     <Editable
                       value={editingLocationId === location.id ? editingLocationName : location.name}
                       onSubmit={(value) => {
-                        console.log('Location edit submitted:', value)
                         updateLocationName(location.id, value)
                         setEditingLocationId(null)
                         setEditingLocationName('')
                       }}
                       onEdit={() => {
-                        console.log('Location edit started:', location.name)
                         setEditingLocationId(location.id)
                         setEditingLocationName(location.name)
                       }}
                       onCancel={() => {
-                        console.log('Location edit cancelled')
                         setEditingLocationId(null)
                         setEditingLocationName('')
                       }}
                       onChange={(value) => {
-                        console.log('Location name changing to:', value)
                         if (editingLocationId === location.id) {
                           setEditingLocationName(value)
                         }
@@ -604,10 +595,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                     >
                       <HStack spacing={2} alignItems="center">
                         <EditablePreview />
-                        <EditableInput 
-                          onFocus={() => console.log('Location input focused')}
-                          onKeyDown={(e) => console.log('Key pressed in location input:', e.key)}
-                        />
+                        <EditableInput />
                         <EditableControls />
                       </HStack>
                     </Editable>
@@ -655,21 +643,11 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                                 <Input
                                   ref={nameInputRef}
                                   value={inlineEditItem.name || ''}
-                                  onChange={(e) => {
-                                    console.log('Name input onChange:', e.target.value)
-                                    updateInlineEditItem('name', e.target.value)
-                                  }}
+                                  onChange={(e) => updateInlineEditItem('name', e.target.value)}
                                   placeholder="Item name"
                                   size="sm"
                                   flex={2}
-                                  isReadOnly={false}
-                                  isDisabled={false}
-                                  tabIndex={0}
-                                  onFocus={(e) => {
-                                    console.log('Name input focused')
-                                    e.target.select()
-                                  }}
-                                  onKeyDown={(e) => console.log('Key pressed in name input:', e.key)}
+                                  onFocus={(e) => e.target.select()}
                                 />
                                 <Input
                                   value={inlineEditItem.amount || ''}
@@ -677,9 +655,6 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                                   placeholder="Amount"
                                   size="sm"
                                   flex={1}
-                                  isReadOnly={false}
-                                  isDisabled={false}
-                                  tabIndex={1}
                                 />
                                 <Select
                                   value={inlineEditItem.unit || ''}
