@@ -598,8 +598,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                       <ListItem key={item.id}>
                         {inlineEditItem && inlineEditItem.id === item.id ? (
                           // Inline Edit Mode
-                          <VStack 
-                            spacing={3} 
+                          <Box
                             py={4} 
                             px={4}
                             borderBottom={index < location.items.length - 1 ? "1px" : "none"}
@@ -608,28 +607,29 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                             borderColor="blue.200"
                             borderRadius="md"
                           >
-                            <HStack spacing={3} w="full">
-                              <Input
-                                value={inlineEditItem.name || ''}
-                                onChange={(e) => updateInlineEditItem('name', e.target.value)}
-                                placeholder="Item name"
-                                size="sm"
-                                flex={2}
-                                autoFocus
-                              />
-                              <Input
-                                value={inlineEditItem.amount || ''}
-                                onChange={(e) => updateInlineEditItem('amount', e.target.value)}
-                                placeholder="Amount"
-                                size="sm"
-                                flex={1}
-                              />
-                              <Select
-                                value={inlineEditItem.unit || ''}
-                                onChange={(e) => updateInlineEditItem('unit', e.target.value)}
-                                size="sm"
-                                flex={1}
-                              >
+                            <VStack spacing={3}>
+                              <HStack spacing={3} w="full">
+                                <Input
+                                  value={inlineEditItem.name || ''}
+                                  onChange={(e) => updateInlineEditItem('name', e.target.value)}
+                                  placeholder="Item name"
+                                  size="sm"
+                                  flex={2}
+                                  autoFocus
+                                />
+                                <Input
+                                  value={inlineEditItem.amount || ''}
+                                  onChange={(e) => updateInlineEditItem('amount', e.target.value)}
+                                  placeholder="Amount"
+                                  size="sm"
+                                  flex={1}
+                                />
+                                <Select
+                                  value={inlineEditItem.unit || ''}
+                                  onChange={(e) => updateInlineEditItem('unit', e.target.value)}
+                                  size="sm"
+                                  flex={1}
+                                >
                                 <option value="g">grams (g)</option>
                                 <option value="kg">kilograms (kg)</option>
                                 <option value="lb">pounds (lb)</option>
@@ -642,16 +642,16 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                                 <option value="bottles">bottles</option>
                                 <option value="bulb">bulb</option>
                               </Select>
-                            </HStack>
-                            
-                            <HStack spacing={3} w="full">
-                              <Select
-                                value={inlineEditItem.category || ''}
-                                onChange={(e) => updateInlineEditItem('category', e.target.value)}
-                                placeholder="Category"
-                                size="sm"
-                                flex={1}
-                              >
+                              </HStack>
+                              
+                              <HStack spacing={3} w="full">
+                                <Select
+                                  value={inlineEditItem.category || ''}
+                                  onChange={(e) => updateInlineEditItem('category', e.target.value)}
+                                  placeholder="Category"
+                                  size="sm"
+                                  flex={1}
+                                >
                                 <option value="vegetables">Vegetables</option>
                                 <option value="dairy">Dairy</option>
                                 <option value="meat">Meat</option>
@@ -664,19 +664,19 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                                 <option value="other">Other</option>
                               </Select>
                               
-                              <Input
-                                type="date"
-                                value={inlineEditItem.expirationDate ? new Date(inlineEditItem.expirationDate).toISOString().split('T')[0] : ''}
-                                onChange={(e) => {
-                                  const dateValue = e.target.value ? new Date(e.target.value + 'T00:00:00').toISOString() : ''
-                                  updateInlineEditItem('expirationDate', dateValue)
-                                }}
-                                size="sm"
-                                flex={1}
-                              />
-                            </HStack>
-                            
-                            <HStack justify="center" spacing={3}>
+                                <Input
+                                  type="date"
+                                  value={inlineEditItem.expirationDate ? new Date(inlineEditItem.expirationDate).toISOString().split('T')[0] : ''}
+                                  onChange={(e) => {
+                                    const dateValue = e.target.value ? new Date(e.target.value + 'T00:00:00').toISOString() : ''
+                                    updateInlineEditItem('expirationDate', dateValue)
+                                  }}
+                                  size="sm"
+                                  flex={1}
+                                />
+                              </HStack>
+                              
+                              <HStack justify="center" spacing={3}>
                               <Button
                                 size="sm"
                                 style={{ backgroundColor: brandColor, color: 'white' }}
@@ -694,8 +694,9 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                               >
                                 Cancel
                               </Button>
-                            </HStack>
-                          </VStack>
+                              </HStack>
+                            </VStack>
+                          </Box>
                         ) : (
                           // Normal Display Mode
                           <HStack 
