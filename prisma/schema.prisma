@@ -7,6 +7,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  preferences    UserPreferences?
+  userRecipes    UserRecipe[]
+  pantryLocations PantryLocation[]
+  pantryItems    PantryItem[]
+  groceryItems   GroceryItem[]
+  depletedItems  DepletedItem[]
+  mealPlans      MealPlan[]
+  userStores     UserStore[]
+
+  // Performance indexes
+  @@index([email])
+  @@map("users")
+}
+
+model UserPreferences {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  unitSystem String   @default("metric")
+  themeMode  String   @default("system")
+  language   String   @default("en")
+  timezone   String   @default("UTC")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
 model Recipe {
   id          String   @id @default(cuid())
   name        String
@@ -18,18 +56,45 @@ model Recipe {
   difficulty  String?
   imageUrl    String?
   sourceUrl   String?
+  createdBy   String?  // User ID who originally created/imported this recipe
+  isPublic    Boolean  @default(true) // If false, only visible to createdBy user
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  userId      String
 
-  ingredients Ingredient[]
+  ingredients  Ingredient[]
   instructions Instruction[]
+  userRecipes  UserRecipe[]
+  mealPlans    MealPlan[]
 
   // Performance indexes
-  @@index([userId, createdAt(sort: Desc)]) // For user's recipes sorted by newest
   @@index([name]) // For recipe name searches
   @@index([totalTime]) // For filtering by cooking time
+  @@index([createdBy]) // For user's created recipes
+  @@index([isPublic]) // For public recipe searches
   @@map("recipes")
+}
+
+model UserRecipe {
+  id             String    @id @default(cuid())
+  userId         String
+  recipeId       String
+  customServings Int?      // User's preferred serving size for this recipe
+  customNotes    String?   // User's personal notes about this recipe
+  isFavorite     Boolean   @default(false)
+  timesCooked    Int       @default(0)
+  lastCookedAt   DateTime?
+  addedAt        DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@unique([userId, recipeId])
+  @@index([userId, addedAt(sort: Desc)]) // For user's recipes sorted by newest
+  @@index([userId, isFavorite]) // For user's favorite recipes
+  @@index([userId, timesCooked(sort: Desc)]) // For user's most cooked recipes
+  @@map("user_recipes")
 }
 
 model Ingredient {
@@ -59,4 +124,124 @@ model Instruction {
   // Performance indexes
   @@index([recipeId, order]) // For ordered instruction queries
   @@map("instructions")
+}
+
+model PantryLocation {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items PantryItem[]
+
+  // Performance indexes
+  @@index([userId, order]) // For ordered pantry locations
+  @@map("pantry_locations")
+}
+
+model PantryItem {
+  id             String    @id @default(cuid())
+  userId         String
+  locationId     String
+  name           String
+  amount         String
+  unit           String
+  category       String?
+  expirationDate DateTime?
+  addedDate      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location PantryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, locationId]) // For user's items in specific location
+  @@index([userId, expirationDate]) // For expiration tracking
+  @@index([userId, addedDate(sort: Desc)]) // For recently added items
+  @@index([name]) // For ingredient searches
+  @@map("pantry_items")
+}
+
+model GroceryItem {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  amount    String?
+  unit      String?
+  category  String?
+  completed Boolean  @default(false)
+  addedDate DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, completed]) // For filtering completed/pending items
+  @@index([userId, addedDate(sort: Desc)]) // For recently added items
+  @@map("grocery_items")
+}
+
+model DepletedItem {
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  lastAmount       String
+  unit             String
+  category         String?
+  depletedDate     DateTime @default(now())
+  timesUsed        Int      @default(1)
+  isFrequentlyUsed Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, depletedDate(sort: Desc)]) // For recently depleted items
+  @@index([userId, timesUsed(sort: Desc)]) // For frequently used items
+  @@map("depleted_items")
+}
+
+model MealPlan {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  date      DateTime
+  mealType  String   // breakfast, lunch, dinner, snack
+  servings  Int?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, date]) // For user's meal plans by date
+  @@index([userId, mealType]) // For filtering by meal type
+  @@map("meal_plans")
+}
+
+model UserStore {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  storeType    String   // delivery, pickup, subscription, specialty
+  website      String?
+  logoUrl      String?
+  isEnabled    Boolean  @default(true)
+  deliveryTime String?
+  minOrder     String?
+  deliveryFee  String?
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, isEnabled]) // For enabled stores
+  @@index([userId, order]) // For ordered stores
+  @@map("user_stores")
 }

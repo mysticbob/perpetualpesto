@@ -57,9 +57,11 @@ interface PaginatedResponse {
 interface RecipeListProps {
   onRecipeSelect?: (recipeId: string) => void
   selectedRecipeId?: string | null
+  onLoadSampleData?: () => void
+  loadingSampleData?: boolean
 }
 
-export default function RecipeList({ onRecipeSelect, selectedRecipeId }: RecipeListProps) {
+export default function RecipeList({ onRecipeSelect, selectedRecipeId, onLoadSampleData, loadingSampleData }: RecipeListProps) {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -94,7 +96,7 @@ export default function RecipeList({ onRecipeSelect, selectedRecipeId }: RecipeL
         params.append('maxTime', timeFilter)
       }
 
-      const response = await fetch(`/api/recipes?${params}`)
+      const response = await fetch(`http://localhost:3001/api/recipes?${params}`)
       if (response.ok) {
         const data: PaginatedResponse = await response.json()
         setRecipes(data.recipes)
@@ -140,7 +142,7 @@ export default function RecipeList({ onRecipeSelect, selectedRecipeId }: RecipeL
 
     setDeleting(true)
     try {
-      const response = await fetch(`/api/recipes/${recipeToDelete.id}`, {
+      const response = await fetch(`http://localhost:3001/api/recipes/${recipeToDelete.id}`, {
         method: 'DELETE',
       })
 
@@ -362,12 +364,26 @@ export default function RecipeList({ onRecipeSelect, selectedRecipeId }: RecipeL
         )}
 
         {!loading && recipes.length === 0 && (
-          <Text color="gray.500" fontSize="sm" textAlign="center" py={8}>
-            {searchTerm || maxTime ? 
-              'No recipes match your search criteria.' : 
-              'No recipes yet. Extract your first recipe to get started!'
-            }
-          </Text>
+          <VStack spacing={4} py={8}>
+            <Text color="gray.500" fontSize="sm" textAlign="center">
+              {searchTerm || maxTime ? 
+                'No recipes match your search criteria.' : 
+                'No recipes yet. Extract your first recipe to get started!'
+              }
+            </Text>
+            {!searchTerm && !maxTime && (
+              <Button
+                size="sm"
+                colorScheme="teal"
+                variant="outline"
+                onClick={onLoadSampleData}
+                isLoading={loadingSampleData}
+                loadingText="Loading..."
+              >
+                Load Sample Recipes
+              </Button>
+            )}
+          </VStack>
         )}
       </VStack>
 

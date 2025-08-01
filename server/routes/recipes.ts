@@ -3,9 +3,10 @@ import { prisma } from '../lib/db'
 
 const app = new Hono()
 
-// Get all recipes with pagination and optional full data
+// Get user's recipes with pagination and optional full data
 app.get('/', async (c) => {
   try {
+    const userId = c.req.query('userId')
     const page = parseInt(c.req.query('page') || '1')
     const limit = parseInt(c.req.query('limit') || '20')
     const includeDetails = c.req.query('includeDetails') === 'true'
@@ -13,10 +14,21 @@ app.get('/', async (c) => {
     const maxTimeParam = c.req.query('maxTime')
     const maxTime = maxTimeParam ? parseInt(maxTimeParam) : undefined
     
+    if (!userId) {
+      return c.json({ error: 'User ID is required' }, 400)
+    }
+    
     const skip = (page - 1) * limit
     
-    // Build where clause for filtering
-    const where: any = {}
+    // Get user's recipes through UserRecipe junction table
+    const where: any = {
+      userRecipes: {
+        some: {
+          userId: userId
+        }
+      }
+    }
+    
     if (search) {
       where.name = {
         contains: search,
@@ -114,52 +126,215 @@ app.get('/:id', async (c) => {
   }
 })
 
-// Create new recipe
+// Create or import a recipe for a user
 app.post('/', async (c) => {
   try {
     const body = await c.req.json()
-    const { name, description, prepTime, cookTime, totalTime, servings, imageUrl, sourceUrl, ingredients, instructions } = body
+    const { userId, name, description, prepTime, cookTime, totalTime, servings, imageUrl, sourceUrl, ingredients, instructions, customServings, customNotes } = body
     
-    const recipe = await prisma.recipe.create({
-      data: {
-        name,
-        description,
-        prepTime,
-        cookTime,
-        totalTime,
-        servings,
-        imageUrl,
-        sourceUrl,
-        userId: 'default-user', // TODO: Replace with actual user ID from auth
-        ingredients: {
-          create: ingredients.map((ingredient: any, index: number) => ({
-            name: ingredient.name,
-            amount: ingredient.amount,
-            unit: ingredient.unit,
-            order: index
-          }))
-        },
-        instructions: {
-          create: instructions.map((instruction: any, index: number) => ({
-            step: instruction.step,
-            order: index
-          }))
+    if (!userId) {
+      return c.json({ error: 'User ID is required' }, 400)
+    }
+
+    // Check for existing recipe with same name, ingredients, and instructions (deduplication)
+    const existingRecipe = await findDuplicateRecipe(name, ingredients, instructions)
+    
+    let recipe
+    let userRecipe
+    
+    if (existingRecipe) {
+      // Use existing recipe, just create user association
+      userRecipe = await prisma.userRecipe.create({
+        data: {
+          userId,
+          recipeId: existingRecipe.id,
+          customServings,
+          customNotes
+        }
+      })
+      recipe = existingRecipe
+    } else {
+      // Create new recipe and user association
+      recipe = await prisma.$transaction(async (tx) => {
+        const newRecipe = await tx.recipe.create({
+          data: {
+            name,
+            description,
+            prepTime,
+            cookTime,
+            totalTime,
+            servings,
+            imageUrl,
+            sourceUrl,
+            createdBy: userId,
+            isPublic: true, // Make recipes public by default for sharing
+            ingredients: {
+              create: ingredients.map((ingredient: any, index: number) => ({
+                name: ingredient.name,
+                amount: ingredient.amount,
+                unit: ingredient.unit,
+                order: index
+              }))
+            },
+            instructions: {
+              create: instructions.map((instruction: any, index: number) => ({
+                step: instruction.step,
+                order: index
+              }))
+            }
+          },
+          include: {
+            ingredients: {
+              orderBy: { order: 'asc' as const }
+            },
+            instructions: {
+              orderBy: { order: 'asc' as const }
+            }
+          }
+        })
+
+        // Create user recipe association
+        await tx.userRecipe.create({
+          data: {
+            userId,
+            recipeId: newRecipe.id,
+            customServings,
+            customNotes
+          }
+        })
+
+        return newRecipe
+      })
+    }
+    
+    return c.json({ recipe, userRecipe }, 201)
+  } catch (error) {
+    console.error('Error creating recipe:', error)
+    return c.json({ error: 'Failed to create recipe' }, 500)
+  }
+})
+
+// Helper function to find duplicate recipes
+async function findDuplicateRecipe(name: string, ingredients: any[], instructions: any[]) {
+  // Look for recipes with similar names (fuzzy matching)
+  const similarRecipes = await prisma.recipe.findMany({
+    where: {
+      name: {
+        contains: name,
+        mode: 'insensitive'
+      }
+    },
+    include: {
+      ingredients: {
+        orderBy: { order: 'asc' }
+      },
+      instructions: {
+        orderBy: { order: 'asc' }
+      }
+    }
+  })
+
+  // Check for exact matches in ingredients and instructions
+  for (const recipe of similarRecipes) {
+    if (recipe.ingredients.length === ingredients.length && 
+        recipe.instructions.length === instructions.length) {
+      
+      const ingredientsMatch = recipe.ingredients.every((ing, index) => 
+        ing.name.toLowerCase() === ingredients[index]?.name?.toLowerCase() &&
+        ing.amount === ingredients[index]?.amount &&
+        ing.unit === ingredients[index]?.unit
+      )
+      
+      const instructionsMatch = recipe.instructions.every((inst, index) =>
+        inst.step === instructions[index]?.step
+      )
+      
+      if (ingredientsMatch && instructionsMatch) {
+        return recipe
+      }
+    }
+  }
+  
+  return null
+}
+
+// Update user's custom recipe settings
+app.put('/user/:userId/:recipeId', async (c) => {
+  try {
+    const userId = c.req.param('userId')
+    const recipeId = c.req.param('recipeId')
+    const { customServings, customNotes, isFavorite } = await c.req.json()
+    
+    const userRecipe = await prisma.userRecipe.update({
+      where: {
+        userId_recipeId: {
+          userId,
+          recipeId
         }
       },
-      include: {
-        ingredients: {
-          orderBy: { order: 'asc' as const }
+      data: {
+        customServings,
+        customNotes,
+        isFavorite,
+        updatedAt: new Date()
+      }
+    })
+    
+    return c.json(userRecipe)
+  } catch (error) {
+    console.error('Error updating user recipe:', error)
+    return c.json({ error: 'Failed to update user recipe' }, 500)
+  }
+})
+
+// Mark recipe as cooked
+app.post('/user/:userId/:recipeId/cooked', async (c) => {
+  try {
+    const userId = c.req.param('userId')
+    const recipeId = c.req.param('recipeId')
+    
+    const userRecipe = await prisma.userRecipe.update({
+      where: {
+        userId_recipeId: {
+          userId,
+          recipeId
+        }
+      },
+      data: {
+        timesCooked: {
+          increment: 1
         },
-        instructions: {
-          orderBy: { order: 'asc' as const }
+        lastCookedAt: new Date(),
+        updatedAt: new Date()
+      }
+    })
+    
+    return c.json(userRecipe)
+  } catch (error) {
+    console.error('Error marking recipe as cooked:', error)
+    return c.json({ error: 'Failed to update cook count' }, 500)
+  }
+})
+
+// Remove recipe from user's collection
+app.delete('/user/:userId/:recipeId', async (c) => {
+  try {
+    const userId = c.req.param('userId')
+    const recipeId = c.req.param('recipeId')
+    
+    await prisma.userRecipe.delete({
+      where: {
+        userId_recipeId: {
+          userId,
+          recipeId
         }
       }
     })
     
-    return c.json(recipe, 201)
+    return c.json({ message: 'Recipe removed from collection' })
   } catch (error) {
-    console.error('Error creating recipe:', error)
-    return c.json({ error: 'Failed to create recipe' }, 500)
+    console.error('Error removing recipe from user:', error)
+    return c.json({ error: 'Failed to remove recipe' }, 500)
   }
 })
 

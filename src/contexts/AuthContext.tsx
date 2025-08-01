@@ -59,8 +59,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user)
+      
+      // If user is logged in, ensure they exist in our database
+      if (user) {
+        try {
+          await fetch('http://localhost:3001/api/users', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              id: user.uid,
+              email: user.email,
+              name: user.displayName,
+              avatar: user.photoURL
+            })
+          })
+        } catch (error) {
+          console.error('Failed to sync user with database:', error)
+        }
+      }
+      
       setLoading(false)
     })
 

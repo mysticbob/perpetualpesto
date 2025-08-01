@@ -113,19 +113,19 @@ export function convertUnit(
 
   try {
     // Create converter instance
-    const converter = convert(numericAmount, convertUnitFormat)
+    const converter = convert(numericAmount, convertUnitFormat as any)
     
     // Determine what type of measurement this is
-    const measure = converter.measure
+    const measure = (converter as any).measure
     
     // Determine target unit based on system preference
     const preferredUnit = getPreferredUnit(measure, targetSystem)
     
     // Convert to preferred unit
-    const converted = converter.to(preferredUnit)
+    const converted = (converter as any).to(preferredUnit)
     
     // Format the result nicely
-    const formattedAmount = formatNumber(converted)
+    const formattedAmount = formatNumber(converted as number)
     const displayUnit = getDisplayUnit(preferredUnit)
     
     return { amount: formattedAmount, unit: displayUnit }
@@ -212,9 +212,9 @@ export function convertToCommonUnit(amount: string, fromUnit: string, toUnit: st
   
   try {
     // Convert from source unit to target unit
-    const converter = convert(numericAmount, fromConvertUnit)
-    const converted = converter.to(toConvertUnit)
-    return converted
+    const converter = convert(numericAmount, fromConvertUnit as any)
+    const converted = (converter as any).to(toConvertUnit)
+    return converted as number
   } catch (error) {
     console.warn(`Unit conversion failed: ${amount} ${fromUnit} -> ${toUnit}`, error)
     return null

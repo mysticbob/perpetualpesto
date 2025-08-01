@@ -35,6 +35,7 @@ import {
 } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, AddIcon, CalendarIcon, EditIcon, DeleteIcon, SettingsIcon, SearchIcon, BreakfastIcon, LunchIcon, DinnerIcon } from './icons/CustomIcons'
+import { usePantry, PantryItem } from '../contexts/PantryContext'
 
 interface MealPlan {
   id: string
@@ -92,6 +93,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
   const [draggedMeal, setDraggedMeal] = useState<string | null>(null)
   const [dragOverSection, setDragOverSection] = useState<string | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const { pantryData } = usePantry()
   const toast = useToast()
   
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([
@@ -155,6 +157,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
           id: '5',
           recipeId: 'recipe-6',
           name: 'Greek Salad',
+          type: 'lunch',
           imageUrl: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400',
           prepTime: 15,
           servings: 4,
@@ -169,7 +172,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
     const fetchRecipes = async () => {
       setLoadingRecipes(true)
       try {
-        const response = await fetch('/api/recipes?limit=100')
+        const response = await fetch('http://localhost:3001/api/recipes?limit=100')
         if (response.ok) {
           const data: PaginatedResponse = await response.json()
           setAvailableRecipes(data.recipes || [])
@@ -223,6 +226,41 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
       days.push(new Date(year, month, i))
     }
     return days
+  }
+
+  const getExpiringItemsForDate = (date: Date): PantryItem[] => {
+    const targetDate = new Date(date)
+    targetDate.setHours(0, 0, 0, 0)
+    
+    // Get date 3 days from the target date (future)
+    const threeDaysLater = new Date(targetDate)
+    threeDaysLater.setDate(threeDaysLater.getDate() + 3)
+    threeDaysLater.setHours(23, 59, 59, 999)
+    
+    // Get date 7 days before the target date (to show already expired items)
+    const sevenDaysEarlier = new Date(targetDate)
+    sevenDaysEarlier.setDate(sevenDaysEarlier.getDate() - 7)
+    sevenDaysEarlier.setHours(0, 0, 0, 0)
+    
+    const expiringItems: PantryItem[] = []
+    
+    pantryData.forEach(location => {
+      location.items.forEach(item => {
+        if (item.expirationDate) {
+          const expirationDate = new Date(item.expirationDate)
+          // Item expires within 3 days of the target date OR expired up to 7 days ago
+          if (expirationDate >= sevenDaysEarlier && expirationDate <= threeDaysLater) {
+            expiringItems.push(item)
+          }
+        }
+      })
+    })
+    
+    // Sort by expiration date (soonest first, expired items first)
+    return expiringItems.sort((a, b) => {
+      if (!a.expirationDate || !b.expirationDate) return 0
+      return new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()
+    })
   }
 
   const getMealsForDate = (date: Date) => {
@@ -410,6 +448,22 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
           <VStack spacing={3} w="full">
             {days.map((date) => {
               const meals = getMealsForDate(date)
+              const expiringItems = getExpiringItemsForDate(date)
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+              
+              // Separate expired and expiring items
+              const expiredItems = expiringItems.filter(item => {
+                const expirationDate = new Date(item.expirationDate!)
+                expirationDate.setHours(0, 0, 0, 0)
+                return expirationDate < today
+              })
+              const aboutToExpireItems = expiringItems.filter(item => {
+                const expirationDate = new Date(item.expirationDate!)
+                expirationDate.setHours(0, 0, 0, 0)
+                return expirationDate >= today
+              })
+              
               const isTodayDate = isToday(date)
               
               return (
@@ -455,6 +509,18 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                         </Text>
                       </VStack>
                     </HStack>
+                    <HStack spacing={1}>
+                      {expiredItems.length > 0 && (
+                        <Badge colorScheme="red" size="sm" fontSize="xs">
+                          {expiredItems.length} expired
+                        </Badge>
+                      )}
+                      {aboutToExpireItems.length > 0 && (
+                        <Badge colorScheme="yellow" size="sm" fontSize="xs">
+                          {aboutToExpireItems.length} expiring
+                        </Badge>
+                      )}
+                    </HStack>
                   </HStack>
 
                   <VStack spacing={2} align="start" w="full">
@@ -478,6 +544,46 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                         </Text>
                       </HStack>
                     ))}
+                    
+                    {(expiredItems.length > 0 || aboutToExpireItems.length > 0) && (
+                      <VStack spacing={1} align="start" w="full" mt={1}>
+                        {expiredItems.length > 0 && (
+                          <>
+                            <Text fontSize="xs" color="#e53e3e" fontWeight="semibold" textTransform="uppercase">
+                              Expired
+                            </Text>
+                            {expiredItems.slice(0, 2).map((item) => (
+                              <HStack key={item.id} spacing={2} w="full">
+                                <Box w="2" h="2" borderRadius="full" bg="#e53e3e" />
+                                <Text fontSize="xs" color={mutedColor} flex={1} noOfLines={1}>
+                                  {item.name}
+                                </Text>
+                              </HStack>
+                            ))}
+                          </>
+                        )}
+                        {aboutToExpireItems.length > 0 && (
+                          <>
+                            <Text fontSize="xs" color="#d69e2e" fontWeight="semibold" textTransform="uppercase">
+                              Expiring Soon
+                            </Text>
+                            {aboutToExpireItems.slice(0, 2).map((item) => (
+                              <HStack key={item.id} spacing={2} w="full">
+                                <Box w="2" h="2" borderRadius="full" bg="#d69e2e" />
+                                <Text fontSize="xs" color={mutedColor} flex={1} noOfLines={1}>
+                                  {item.name}
+                                </Text>
+                              </HStack>
+                            ))}
+                          </>
+                        )}
+                        {expiringItems.length > 4 && (
+                          <Text fontSize="xs" color={mutedColor} ml={4}>
+                            +{expiringItems.length - 4} more
+                          </Text>
+                        )}
+                      </VStack>
+                    )}
                   </VStack>
                 </Box>
               )
@@ -511,10 +617,26 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
 
             <Divider />
 
-            {/* Meal Times + Today Section */}
+            {/* Meal Times + Today Section + Expiring Items */}
             {(() => {
               const allMeals = getMealsForDate(selectedDate)
               const mealsWithoutType = allMeals.filter(meal => !meal.type)
+              const expiringItems = getExpiringItemsForDate(selectedDate)
+              const today = new Date()
+              today.setHours(0, 0, 0, 0)
+              
+              // Separate expired and expiring items
+              const expiredItems = expiringItems.filter(item => {
+                const expirationDate = new Date(item.expirationDate!)
+                expirationDate.setHours(0, 0, 0, 0)
+                return expirationDate < today
+              })
+              const aboutToExpireItems = expiringItems.filter(item => {
+                const expirationDate = new Date(item.expirationDate!)
+                expirationDate.setHours(0, 0, 0, 0)
+                return expirationDate >= today
+              })
+              
               const sections = [
                 ...(['breakfast', 'lunch', 'dinner'] as const).map(mealType => ({
                   type: mealType,
@@ -528,6 +650,20 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                   name: 'today',
                   meals: mealsWithoutType,
                   color: '#38BDAF'
+                }] : []),
+                ...(expiredItems.length > 0 ? [{
+                  type: 'expired' as const,
+                  name: 'expired',
+                  meals: [], // No meals, we'll handle items separately
+                  expiringItems: expiredItems,
+                  color: '#e53e3e'
+                }] : []),
+                ...(aboutToExpireItems.length > 0 ? [{
+                  type: 'expiring' as const,
+                  name: 'expiring soon',
+                  meals: [], // No meals, we'll handle items separately
+                  expiringItems: aboutToExpireItems,
+                  color: '#d69e2e'
                 }] : [])
               ]
 
@@ -552,18 +688,82 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                       <LunchIcon w="5" h="5" />
                     ) : section.type === 'dinner' ? (
                       <DinnerIcon w="5" h="5" />
+                    ) : section.type === 'expired' ? (
+                      <Text fontSize="xl">❌</Text>
+                    ) : section.type === 'expiring' ? (
+                      <Text fontSize="xl">⚠️</Text>
                     ) : (
                       <CalendarIcon w="5" h="5" />
                     )}
                     <Heading size="md" textTransform="capitalize">
                       {section.name}
                     </Heading>
-                    <Badge colorScheme="gray" size="sm">
-                      {section.meals.length} {section.meals.length === 1 ? 'recipe' : 'recipes'}
+                    <Badge 
+                      colorScheme={
+                        section.type === 'expired' ? 'red' : 
+                        section.type === 'expiring' ? 'yellow' : 'gray'
+                      } 
+                      size="sm"
+                    >
+                      {section.type === 'expired' || section.type === 'expiring' ? 
+                        `${(section as any).expiringItems.length} ${(section as any).expiringItems.length === 1 ? 'item' : 'items'}` :
+                        `${section.meals.length} ${section.meals.length === 1 ? 'recipe' : 'recipes'}`
+                      }
                     </Badge>
                   </HStack>
 
-                  {section.meals.length === 0 ? (
+                  {section.type === 'expired' || section.type === 'expiring' ? (
+                    <VStack spacing={3} align="start" w="full" mb={4}>
+                      {(section as any).expiringItems.map((item: PantryItem) => {
+                        const expirationDate = new Date(item.expirationDate!)
+                        const today = new Date()
+                        const daysUntilExpiration = Math.ceil((expirationDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                        const isExpired = section.type === 'expired'
+                        
+                        return (
+                          <Card 
+                            key={item.id} 
+                            size="sm" 
+                            w="full"
+                            bg={useColorModeValue(
+                              isExpired ? 'red.50' : 'yellow.50', 
+                              isExpired ? 'red.900' : 'yellow.900'
+                            )}
+                            borderLeft="4px solid"
+                            borderLeftColor={isExpired ? '#e53e3e' : '#d69e2e'}
+                          >
+                            <CardBody>
+                              <HStack spacing={4} align="start">
+                                <VStack align="start" spacing={1} flex={1}>
+                                  <Text fontWeight="medium" fontSize="sm">
+                                    {item.name}
+                                  </Text>
+                                  <HStack spacing={2}>
+                                    <Text fontSize="xs" color={mutedColor}>
+                                      {item.amount} {item.unit}
+                                    </Text>
+                                    <Text fontSize="xs" color={mutedColor}>
+                                      • {item.location}
+                                    </Text>
+                                  </HStack>
+                                  <Text 
+                                    fontSize="xs" 
+                                    color={isExpired ? '#e53e3e' : '#d69e2e'} 
+                                    fontWeight="semibold"
+                                  >
+                                    {daysUntilExpiration < 0 ? `Expired ${Math.abs(daysUntilExpiration)} ${Math.abs(daysUntilExpiration) === 1 ? 'day' : 'days'} ago` :
+                                     daysUntilExpiration === 0 ? 'Expires today' :
+                                     daysUntilExpiration === 1 ? 'Expires tomorrow' :
+                                     `Expires in ${daysUntilExpiration} days`}
+                                  </Text>
+                                </VStack>
+                              </HStack>
+                            </CardBody>
+                          </Card>
+                        )
+                      })}
+                    </VStack>
+                  ) : section.meals.length === 0 ? (
                     <Text color={mutedColor} fontSize="sm" ml={7} mb={4}>
                       No recipes planned
                     </Text>

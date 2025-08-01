@@ -59,7 +59,7 @@ export default function RecipeExtractor() {
 
     setLoading(true)
     try {
-      const response = await fetch('/api/extract', {
+      const response = await fetch('http://localhost:3001/api/extract', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +97,7 @@ export default function RecipeExtractor() {
 
     setSaving(true)
     try {
-      const response = await fetch('/api/recipes', {
+      const response = await fetch('http://localhost:3001/api/recipes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

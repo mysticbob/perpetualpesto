@@ -7,13 +7,16 @@ import {
   VStack,
   useColorModeValue,
   Container,
-  Divider
+  Divider,
+  useToast
 } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
 import RecipeList from './RecipeList'
 import RecipeView from './RecipeView'
 import RecipeSummary from './RecipeSummary'
 import CookMode from './CookMode'
+import { generateSampleRecipes, SampleRecipe } from '../utils/sampleRecipes'
+import { useAuth } from '../contexts/AuthContext'
 
 interface Recipe {
   id: string
@@ -45,7 +48,10 @@ export default function RecipesPage({ onGroceries }: RecipesPageProps) {
   const [currentRecipe, setCurrentRecipe] = useState<Recipe | null>(null)
   const [loadingRecipe, setLoadingRecipe] = useState(false)
   const [view, setView] = useState<'summary' | 'recipe' | 'cook'>('summary')
+  const [loadingSampleData, setLoadingSampleData] = useState(false)
 
+  const { currentUser } = useAuth()
+  const toast = useToast()
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
 
@@ -92,7 +98,7 @@ export default function RecipesPage({ onGroceries }: RecipesPageProps) {
     setView('summary')
     
     try {
-      const response = await fetch(`/api/recipes/${recipeId}`)
+      const response = await fetch(`http://localhost:3001/api/recipes/${recipeId}`)
       if (response.ok) {
         const recipe = await response.json()
         console.log('Loaded recipe from database:', recipe)
@@ -137,6 +143,88 @@ export default function RecipesPage({ onGroceries }: RecipesPageProps) {
 
   const handleBackToSummary = () => {
     setView('summary')
+  }
+
+  const handleLoadSampleData = async () => {
+    if (!currentUser) {
+      toast({
+        title: 'Error',
+        description: 'Please log in to load sample recipes.',
+        status: 'error',
+        duration: 3000,
+      })
+      return
+    }
+
+    setLoadingSampleData(true)
+    const sampleRecipes = generateSampleRecipes()
+    let successCount = 0
+    let failureCount = 0
+
+    try {
+      // Load each sample recipe
+      for (const sampleRecipe of sampleRecipes) {
+        try {
+          const response = await fetch('http://localhost:3001/api/recipes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: currentUser.uid,
+              name: sampleRecipe.name,
+              description: sampleRecipe.description,
+              prepTime: sampleRecipe.prepTime,
+              cookTime: sampleRecipe.cookTime,
+              totalTime: sampleRecipe.totalTime,
+              servings: sampleRecipe.servings,
+              imageUrl: sampleRecipe.imageUrl,
+              sourceUrl: sampleRecipe.sourceUrl,
+              ingredients: sampleRecipe.ingredients,
+              instructions: sampleRecipe.instructions
+            })
+          })
+
+          if (response.ok) {
+            successCount++
+          } else {
+            failureCount++
+            console.error(`Failed to load recipe: ${sampleRecipe.name}`)
+          }
+        } catch (error) {
+          failureCount++
+          console.error(`Error loading recipe ${sampleRecipe.name}:`, error)
+        }
+      }
+
+      if (successCount > 0) {
+        toast({
+          title: 'Sample Recipes Loaded!',
+          description: `Successfully loaded ${successCount} sample recipe${successCount === 1 ? '' : 's'}.${failureCount > 0 ? ` ${failureCount} failed to load.` : ''}`,
+          status: 'success',
+          duration: 5000,
+        })
+        
+        // The RecipeList will automatically refresh and show the new recipes
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to load sample recipes. Please try again.',
+          status: 'error',
+          duration: 5000,
+        })
+      }
+    } catch (error) {
+      console.error('Error loading sample data:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load sample recipes. Please try again.',
+        status: 'error',
+        duration: 5000,
+      })
+    } finally {
+      setLoadingSampleData(false)
+    }
   }
 
   const renderRecipeContent = () => {
@@ -205,6 +293,8 @@ export default function RecipesPage({ onGroceries }: RecipesPageProps) {
               <RecipeList 
                 onRecipeSelect={handleRecipeSelect} 
                 selectedRecipeId={selectedRecipeId}
+                onLoadSampleData={handleLoadSampleData}
+                loadingSampleData={loadingSampleData}
               />
             </VStack>
           </Box>

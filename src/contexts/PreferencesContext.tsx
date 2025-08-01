@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { UnitSystem } from '../utils/units'
+import { useAuth } from './AuthContext'
 
 export type ThemeMode = 'automatic' | 'light' | 'dark'
 
@@ -23,25 +24,68 @@ const defaultPreferences: Preferences = {
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined)
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
+  const { currentUser } = useAuth()
   const [preferences, setPreferences] = useState<Preferences>(defaultPreferences)
+  const [loading, setLoading] = useState(true)
 
-  // Load preferences from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('recipe-planner-preferences')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        setPreferences({ ...defaultPreferences, ...parsed })
-      } catch (error) {
-        console.error('Failed to parse saved preferences:', error)
+  // Load user's preferences from API
+  const loadPreferences = async (userId: string) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/preferences?userId=${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setPreferences({ ...defaultPreferences, ...data })
+      } else {
+        // If no preferences found, use defaults
+        setPreferences(defaultPreferences)
+        await savePreferences(userId, defaultPreferences)
       }
+    } catch (error) {
+      console.error('Failed to load preferences:', error)
+      setPreferences(defaultPreferences)
+    } finally {
+      setLoading(false)
     }
-  }, [])
+  }
 
-  // Save preferences to localStorage whenever they change
+  // Save preferences to API
+  const savePreferences = async (userId: string, prefs: Preferences) => {
+    try {
+      await fetch('http://localhost:3001/api/preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          ...prefs
+        })
+      })
+    } catch (error) {
+      console.error('Failed to save preferences:', error)
+    }
+  }
+
+  // Load data when user changes
   useEffect(() => {
-    localStorage.setItem('recipe-planner-preferences', JSON.stringify(preferences))
-  }, [preferences])
+    if (currentUser) {
+      loadPreferences(currentUser.uid)
+    } else {
+      setPreferences(defaultPreferences)
+      setLoading(false)
+    }
+  }, [currentUser])
+
+  // Auto-save when preferences change (with debouncing)
+  useEffect(() => {
+    if (currentUser && !loading) {
+      const timeoutId = setTimeout(() => {
+        savePreferences(currentUser.uid, preferences)
+      }, 1000) // Debounce saves by 1 second
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [currentUser, preferences, loading])
 
   const updatePreferences = (updates: Partial<Preferences>) => {
     setPreferences(prev => ({ ...prev, ...updates }))

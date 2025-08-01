@@ -134,7 +134,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
   }
 
   const updateLocationName = (locationId: string, newName: string) => {
-    setPantryData((prev: any) => prev.map((location: any) => 
+    setPantryData(prev => prev.map(location => 
       location.id === locationId 
         ? { ...location, name: newName }
         : location
@@ -159,7 +159,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
       expirationDate
     }
 
-    setPantryData((prev: any) => prev.map((location: any) => 
+    setPantryData(prev => prev.map(location => 
       location.id === newItem.location
         ? { ...location, items: [...location.items, item] }
         : location
@@ -170,19 +170,19 @@ export default function PantryPage({ onBack }: PantryPageProps) {
   }
 
   const removeItem = (itemId: string, locationId: string) => {
-    setPantryData((prev: any) => prev.map((location: any) => 
+    setPantryData(prev => prev.map(location => 
       location.id === locationId
-        ? { ...location, items: location.items.filter((item: any) => item.id !== itemId) }
+        ? { ...location, items: location.items.filter(item => item.id !== itemId) }
         : location
     ))
   }
 
   const updateItem = (itemId: string, locationId: string, updates: Partial<PantryItem>) => {
-    setPantryData((prev: any) => prev.map((location: any) => 
+    setPantryData(prev => prev.map(location => 
       location.id === locationId
         ? { 
             ...location, 
-            items: location.items.map((item: any) => 
+            items: location.items.map(item => 
               item.id === itemId ? { ...item, ...updates } : item
             )
           }
@@ -218,7 +218,10 @@ export default function PantryPage({ onBack }: PantryPageProps) {
 
   const updateInlineEditItem = (field: keyof PantryItem, value: string) => {
     if (!inlineEditItem) return
-    setInlineEditItem(prev => prev ? { ...prev, [field]: value } : null)
+    setInlineEditItem(prev => {
+      if (!prev) return null
+      return { ...prev, [field]: value }
+    })
   }
 
   const getTotalItemCount = () => {
@@ -554,8 +557,12 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                       onSubmit={(value) => updateLocationName(location.id, value)}
                       fontSize="xl"
                       fontWeight="bold"
+                      isPreviewFocusable={true}
+                      selectAllOnFocus={true}
+                      display="flex"
+                      alignItems="center"
                     >
-                      <HStack spacing={2}>
+                      <HStack spacing={2} alignItems="center">
                         <EditablePreview />
                         <EditableInput />
                         <EditableControls />
@@ -603,21 +610,22 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                           >
                             <HStack spacing={3} w="full">
                               <Input
-                                value={inlineEditItem.name}
+                                value={inlineEditItem.name || ''}
                                 onChange={(e) => updateInlineEditItem('name', e.target.value)}
                                 placeholder="Item name"
                                 size="sm"
                                 flex={2}
+                                autoFocus
                               />
                               <Input
-                                value={inlineEditItem.amount}
+                                value={inlineEditItem.amount || ''}
                                 onChange={(e) => updateInlineEditItem('amount', e.target.value)}
                                 placeholder="Amount"
                                 size="sm"
                                 flex={1}
                               />
                               <Select
-                                value={inlineEditItem.unit}
+                                value={inlineEditItem.unit || ''}
                                 onChange={(e) => updateInlineEditItem('unit', e.target.value)}
                                 size="sm"
                                 flex={1}
@@ -946,7 +954,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                 <FormControl>
                   <FormLabel>Item Name</FormLabel>
                   <Input
-                    value={editItem.name}
+                    value={editItem.name || ''}
                     onChange={(e) => setEditItem(prev => prev ? { ...prev, name: e.target.value } : null)}
                   />
                 </FormControl>
@@ -955,7 +963,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                   <FormControl>
                     <FormLabel>Amount</FormLabel>
                     <Input
-                      value={editItem.amount}
+                      value={editItem.amount || ''}
                       onChange={(e) => setEditItem(prev => prev ? { ...prev, amount: e.target.value } : null)}
                     />
                   </FormControl>
@@ -963,7 +971,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                   <FormControl>
                     <FormLabel>Unit</FormLabel>
                     <Select
-                      value={editItem.unit}
+                      value={editItem.unit || ''}
                       onChange={(e) => setEditItem(prev => prev ? { ...prev, unit: e.target.value } : null)}
                     >
                       <option value="g">grams (g)</option>
@@ -996,7 +1004,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                 <FormControl>
                   <FormLabel>Location</FormLabel>
                   <Select
-                    value={editItem.location}
+                    value={editItem.location || ''}
                     onChange={(e) => setEditItem(prev => prev ? { ...prev, location: e.target.value } : null)}
                   >
                     {pantryData.map(location => (

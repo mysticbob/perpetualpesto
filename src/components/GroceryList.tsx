@@ -98,6 +98,73 @@ export default function GroceryList({ onBack }: GroceryListProps) {
   const successColor = '#008060'
   const criticalColor = '#d72c0d'
 
+  const categoryColors: Record<string, string> = {
+    vegetables: 'green',
+    dairy: 'blue',
+    meat: 'red',
+    grains: 'orange',
+    legumes: 'purple',
+    oils: 'yellow',
+    canned: 'gray',
+    spices: 'pink',
+    desserts: 'cyan',
+    aromatics: 'pink',
+    other: 'gray'
+  }
+
+  // Define category order for logical shopping flow
+  const categoryOrder = [
+    'vegetables',
+    'aromatics', 
+    'meat',
+    'dairy',
+    'grains',
+    'legumes',
+    'oils',
+    'spices',
+    'canned',
+    'desserts',
+    'other'
+  ]
+
+  // Group items by category
+  const groupItemsByCategory = (items: GroceryItem[]) => {
+    const grouped: Record<string, GroceryItem[]> = {}
+    
+    items.forEach(item => {
+      const category = item.category || 'other'
+      if (!grouped[category]) {
+        grouped[category] = []
+      }
+      grouped[category].push(item)
+    })
+    
+    // Sort items within each category by name
+    Object.keys(grouped).forEach(category => {
+      grouped[category].sort((a, b) => a.name.localeCompare(b.name))
+    })
+    
+    return grouped
+  }
+
+  // Get category display name
+  const getCategoryDisplayName = (category: string) => {
+    const displayNames: Record<string, string> = {
+      vegetables: 'Vegetables & Produce',
+      aromatics: 'Aromatics & Herbs',
+      meat: 'Meat & Seafood',
+      dairy: 'Dairy & Eggs',
+      grains: 'Grains & Bread',
+      legumes: 'Legumes & Beans',
+      oils: 'Oils & Condiments',
+      spices: 'Spices & Seasonings',
+      canned: 'Canned & Packaged',
+      desserts: 'Desserts & Treats',
+      other: 'Other Items'
+    }
+    return displayNames[category] || category.charAt(0).toUpperCase() + category.slice(1)
+  }
+
   const toggleItem = (itemId: string, event?: React.MouseEvent) => {
     if (event) {
       event.preventDefault()
@@ -222,11 +289,15 @@ export default function GroceryList({ onBack }: GroceryListProps) {
           return 'refrigerator'
         case 'vegetables':
           return 'refrigerator' // Fresh produce goes to fridge
-        case 'dried':
         case 'grains':
+        case 'legumes':
+        case 'oils':
         case 'canned':
         case 'spices':
+        case 'aromatics':
           return 'pantry'
+        case 'desserts':
+          return 'freezer' // Ice cream and frozen desserts
         default:
           return 'refrigerator' // Default to refrigerator for fresh items
       }
@@ -295,7 +366,7 @@ export default function GroceryList({ onBack }: GroceryListProps) {
 
   const openFulfillment = () => {
     // Pre-select all pending items
-    const pendingItemIds = new Set(pendingItems.map(item => item.id))
+    const pendingItemIds = new Set<string>(pendingItems.map(item => item.id))
     setSelectedItemsForPurchase(pendingItemIds)
     onFulfillOpen()
   }
@@ -347,6 +418,10 @@ export default function GroceryList({ onBack }: GroceryListProps) {
 
   const completedItems = groceryItems.filter(item => item.completed)
   const pendingItems = groceryItems.filter(item => !item.completed)
+  
+  // Group pending items by category
+  const groupedPendingItems = groupItemsByCategory(pendingItems)
+  const groupedCompletedItems = groupItemsByCategory(completedItems)
 
   return (
     <Box minH="100vh" bg={bgColor}>
@@ -407,105 +482,162 @@ export default function GroceryList({ onBack }: GroceryListProps) {
             </HStack>
           </VStack>
 
-          {/* Pending Items */}
-          <Box w="full">
-            <List spacing={0}>
-              {pendingItems.map((item, index) => (
-                <ListItem key={item.id}>
-                  <HStack
-                    justify="space-between"
-                    py={4}
-                    px={4}
-                    borderBottom={index < pendingItems.length - 1 ? "1px" : "none"}
-                    borderColor={borderColor}
-                    _hover={{ bg: useColorModeValue('gray.100', 'gray.800') }}
-                  >
-                    <HStack spacing={4} flex={1}>
-                      <IconButton
-                        aria-label="Mark as completed"
-                        icon={<CheckIcon />}
-                        size="md"
-                        variant="outline"
-                        borderRadius="full"
-                        style={{ borderColor: successColor, color: successColor }}
-                        _hover={{ backgroundColor: `${successColor}20` }}
-                        onClick={(e) => toggleItem(item.id, e)}
-                      />
-                      <VStack align="start" spacing={1} flex={1}>
-                        <Text fontWeight="medium" fontSize="md">
-                          {item.name}
+          {/* Pending Items - Grouped by Category */}
+          <VStack spacing={6} w="full">
+            {pendingItems.length === 0 ? (
+              <Box textAlign="center" py={8}>
+                <Text color={mutedColor} fontSize="lg">
+                  No pending grocery items
+                </Text>
+              </Box>
+            ) : (
+              categoryOrder
+                .filter(category => groupedPendingItems[category] && groupedPendingItems[category].length > 0)
+                .map(category => (
+                  <Box key={category} w="full">
+                    {/* Category Header */}
+                    <HStack justify="space-between" mb={4} pb={2} borderBottom="2px" borderColor={borderColor}>
+                      <HStack spacing={3}>
+                        <Text fontSize="lg" fontWeight="bold" color={useColorModeValue('gray.700', 'gray.300')}>
+                          {getCategoryDisplayName(category)}
                         </Text>
-                        <HStack spacing={2}>
-                          {(item.amount || item.unit) && (
-                            <Text fontSize="sm" style={{ color: brandColor }} fontWeight="bold">
-                              {item.amount && item.unit 
-                                ? `${item.amount} ${item.unit}`
-                                : item.amount || item.unit || ''
-                              }
-                            </Text>
-                          )}
-                          {item.category && (
-                            <Badge 
-                              size="sm" 
-                              colorScheme="gray"
-                              textTransform="uppercase"
-                            >
-                              {item.category}
-                            </Badge>
-                          )}
-                        </HStack>
-                      </VStack>
+                        <Badge 
+                          colorScheme={categoryColors[category] || 'gray'} 
+                          variant="outline"
+                          size="sm"
+                        >
+                          {groupedPendingItems[category].length} ITEMS
+                        </Badge>
+                      </HStack>
                     </HStack>
-                  </HStack>
-                </ListItem>
-              ))}
-            </List>
-          </Box>
 
-          {/* Completed Items */}
+                    {/* Category Items */}
+                    <List spacing={0}>
+                      {groupedPendingItems[category].map((item, index) => (
+                        <ListItem key={item.id}>
+                          <HStack
+                            justify="space-between"
+                            py={4}
+                            px={4}
+                            borderBottom={index < groupedPendingItems[category].length - 1 ? "1px" : "none"}
+                            borderColor={borderColor}
+                            _hover={{ bg: useColorModeValue('gray.100', 'gray.800') }}
+                            bg={useColorModeValue('white', 'gray.900')}
+                            borderRadius={index === 0 ? "md md 0 0" : index === groupedPendingItems[category].length - 1 ? "0 0 md md" : "none"}
+                          >
+                            <HStack spacing={4} flex={1}>
+                              <IconButton
+                                aria-label="Mark as completed"
+                                icon={<CheckIcon />}
+                                size="md"
+                                variant="outline"
+                                borderRadius="full"
+                                style={{ borderColor: successColor, color: successColor }}
+                                _hover={{ backgroundColor: `${successColor}20` }}
+                                onClick={(e) => toggleItem(item.id, e)}
+                              />
+                              <VStack align="start" spacing={1} flex={1}>
+                                <Text fontWeight="medium" fontSize="md">
+                                  {item.name}
+                                </Text>
+                                <HStack spacing={2}>
+                                  {(item.amount || item.unit) && (
+                                    <Text fontSize="sm" style={{ color: brandColor }} fontWeight="bold">
+                                      {item.amount && item.unit 
+                                        ? `${item.amount} ${item.unit}`
+                                        : item.amount || item.unit || ''
+                                      }
+                                    </Text>
+                                  )}
+                                </HStack>
+                              </VStack>
+                            </HStack>
+                          </HStack>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                ))
+            )}
+          </VStack>
+
+          {/* Completed Items - Grouped by Category */}
           {completedItems.length > 0 && (
-            <Box w="full">
-              <Text fontSize="sm" color={mutedColor} fontWeight="medium" mb={4} pb={2} borderBottom="2px" borderColor={borderColor}>
+            <VStack spacing={4} w="full">
+              <Text fontSize="lg" color={mutedColor} fontWeight="bold" mb={2} pb={2} borderBottom="2px" borderColor={borderColor} w="full">
                 COMPLETED ({completedItems.length})
               </Text>
               
-              <List spacing={0}>
-                {completedItems.map((item, index) => (
-                  <ListItem key={item.id}>
-                    <HStack
-                      justify="space-between"
-                      py={3}
-                      px={4}
-                      borderBottom={index < completedItems.length - 1 ? "1px" : "none"}
-                      borderColor={borderColor}
-                      _hover={{ bg: useColorModeValue('gray.100', 'gray.800') }}
-                      opacity={0.6}
-                    >
-                      <HStack spacing={4} flex={1}>
-                        <IconButton
-                          aria-label="Mark as incomplete"
-                          icon={<CheckIcon />}
-                          size="md"
-                          variant="solid"
-                          borderRadius="full"
-                          style={{ backgroundColor: successColor, color: 'white' }}
-                          _hover={{ backgroundColor: '#006b4f' }}
-                          onClick={(e) => toggleItem(item.id, e)}
-                        />
-                        <Text
-                          fontSize="md"
-                          color={mutedColor}
-                          textDecoration="line-through"
-                          flex={1}
-                        >
-                          {item.name}
+              {categoryOrder
+                .filter(category => groupedCompletedItems[category] && groupedCompletedItems[category].length > 0)
+                .map(category => (
+                  <Box key={`completed-${category}`} w="full" opacity={0.6}>
+                    {/* Category Header */}
+                    <HStack justify="space-between" mb={3} pb={1} borderBottom="1px" borderColor={borderColor}>
+                      <HStack spacing={2}>
+                        <Text fontSize="md" fontWeight="semibold" color={mutedColor}>
+                          {getCategoryDisplayName(category)}
                         </Text>
+                        <Badge 
+                          colorScheme={categoryColors[category] || 'gray'} 
+                          variant="outline"
+                          size="xs"
+                          opacity={0.7}
+                        >
+                          {groupedCompletedItems[category].length}
+                        </Badge>
                       </HStack>
                     </HStack>
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
+
+                    {/* Category Items */}
+                    <List spacing={0}>
+                      {groupedCompletedItems[category].map((item, index) => (
+                        <ListItem key={item.id}>
+                          <HStack
+                            justify="space-between"
+                            py={3}
+                            px={4}
+                            borderBottom={index < groupedCompletedItems[category].length - 1 ? "1px" : "none"}
+                            borderColor={borderColor}
+                            _hover={{ bg: useColorModeValue('gray.100', 'gray.800') }}
+                          >
+                            <HStack spacing={4} flex={1}>
+                              <IconButton
+                                aria-label="Mark as incomplete"
+                                icon={<CheckIcon />}
+                                size="md"
+                                variant="solid"
+                                borderRadius="full"
+                                style={{ backgroundColor: successColor, color: 'white' }}
+                                _hover={{ backgroundColor: '#006b4f' }}
+                                onClick={(e) => toggleItem(item.id, e)}
+                              />
+                              <VStack align="start" spacing={1} flex={1}>
+                                <Text
+                                  fontSize="md"
+                                  color={mutedColor}
+                                  textDecoration="line-through"
+                                >
+                                  {item.name}
+                                </Text>
+                                {(item.amount || item.unit) && (
+                                  <Text fontSize="sm" color={mutedColor} textDecoration="line-through">
+                                    {item.amount && item.unit 
+                                      ? `${item.amount} ${item.unit}`
+                                      : item.amount || item.unit || ''
+                                    }
+                                  </Text>
+                                )}
+                              </VStack>
+                            </HStack>
+                          </HStack>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Box>
+                ))
+              }
+            </VStack>
           )}
         </VStack>
       </Container>
@@ -548,9 +680,12 @@ export default function GroceryList({ onBack }: GroceryListProps) {
                     <option value="dairy">Dairy</option>
                     <option value="meat">Meat</option>
                     <option value="grains">Grains</option>
+                    <option value="legumes">Legumes</option>
+                    <option value="oils">Oils</option>
                     <option value="canned">Canned Goods</option>
-                    <option value="dried">Dried Goods</option>
                     <option value="spices">Spices</option>
+                    <option value="aromatics">Aromatics</option>
+                    <option value="desserts">Desserts</option>
                     <option value="other">Other</option>
                   </Select>
                 </FormControl>
@@ -597,36 +732,55 @@ export default function GroceryList({ onBack }: GroceryListProps) {
                   Items to Purchase ({selectedItemsForPurchase.size} selected)
                 </Text>
                 
-                <VStack spacing={3} align="start">
-                  {pendingItems.map((item) => (
-                    <HStack key={item.id} spacing={3} w="full" p={3} borderRadius="md" border="1px" borderColor={borderColor}>
-                      <Checkbox
-                        isChecked={selectedItemsForPurchase.has(item.id)}
-                        onChange={() => toggleItemForPurchase(item.id)}
-                        colorScheme="teal"
-                      />
-                      <VStack align="start" spacing={1} flex={1}>
-                        <Text fontWeight="medium" fontSize="sm">
-                          {item.name}
-                        </Text>
-                        <HStack spacing={2}>
-                          {(item.amount || item.unit) && (
-                            <Text fontSize="xs" style={{ color: brandColor }} fontWeight="bold">
-                              {item.amount && item.unit 
-                                ? `${item.amount} ${item.unit}`
-                                : item.amount || item.unit || ''
-                              }
-                            </Text>
-                          )}
-                          {item.category && (
-                            <Badge size="xs" colorScheme="gray" textTransform="uppercase">
-                              {item.category}
-                            </Badge>
-                          )}
+                <VStack spacing={4} align="start">
+                  {categoryOrder
+                    .filter(category => groupedPendingItems[category] && groupedPendingItems[category].length > 0)
+                    .map(category => (
+                      <Box key={`modal-${category}`} w="full">
+                        {/* Category Header in Modal */}
+                        <HStack spacing={2} mb={2}>
+                          <Text fontSize="sm" fontWeight="bold" color={useColorModeValue('gray.600', 'gray.400')}>
+                            {getCategoryDisplayName(category)}
+                          </Text>
+                          <Badge 
+                            colorScheme={categoryColors[category] || 'gray'} 
+                            size="xs"
+                            variant="outline"
+                          >
+                            {groupedPendingItems[category].length}
+                          </Badge>
                         </HStack>
-                      </VStack>
-                    </HStack>
-                  ))}
+                        
+                        {/* Category Items in Modal */}
+                        <VStack spacing={2} align="start" w="full">
+                          {groupedPendingItems[category].map((item) => (
+                            <HStack key={item.id} spacing={3} w="full" p={3} borderRadius="md" border="1px" borderColor={borderColor}>
+                              <Checkbox
+                                isChecked={selectedItemsForPurchase.has(item.id)}
+                                onChange={() => toggleItemForPurchase(item.id)}
+                                colorScheme="teal"
+                              />
+                              <VStack align="start" spacing={1} flex={1}>
+                                <Text fontWeight="medium" fontSize="sm">
+                                  {item.name}
+                                </Text>
+                                <HStack spacing={2}>
+                                  {(item.amount || item.unit) && (
+                                    <Text fontSize="xs" style={{ color: brandColor }} fontWeight="bold">
+                                      {item.amount && item.unit 
+                                        ? `${item.amount} ${item.unit}`
+                                        : item.amount || item.unit || ''
+                                      }
+                                    </Text>
+                                  )}
+                                </HStack>
+                              </VStack>
+                            </HStack>
+                          ))}
+                        </VStack>
+                      </Box>
+                    ))
+                  }
                 </VStack>
               </Box>
 

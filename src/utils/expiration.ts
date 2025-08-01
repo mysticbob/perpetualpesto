@@ -23,11 +23,11 @@ export const EXPIRATION_DATABASE: Record<string, ExpirationInfo> = {
   'cucumber': { name: 'Cucumber', refrigeratorDays: 7, category: 'vegetables' },
   'onion': { name: 'Onion', pantryDays: 30, refrigeratorDays: 60, category: 'vegetables' },
   'onions': { name: 'Onions', pantryDays: 30, refrigeratorDays: 60, category: 'vegetables' },
-  'garlic': { name: 'Garlic', pantryDays: 90, category: 'aromatics' },
+  'garlic': { name: 'Garlic', pantryDays: 90, refrigeratorDays: 120, category: 'aromatics' },
   'tomatoes': { name: 'Tomatoes', refrigeratorDays: 7, category: 'vegetables' },
   'tomato': { name: 'Tomatoes', refrigeratorDays: 7, category: 'vegetables' },
-  'potatoes': { name: 'Potatoes', pantryDays: 30, category: 'vegetables' },
-  'potato': { name: 'Potatoes', pantryDays: 30, category: 'vegetables' },
+  'potatoes': { name: 'Potatoes', pantryDays: 30, refrigeratorDays: 14, category: 'vegetables' },
+  'potato': { name: 'Potatoes', pantryDays: 30, refrigeratorDays: 14, category: 'vegetables' },
 
   // Fresh Fruits (Refrigerator)
   'apples': { name: 'Apples', refrigeratorDays: 28, category: 'fruits' },
@@ -68,36 +68,36 @@ export const EXPIRATION_DATABASE: Record<string, ExpirationInfo> = {
   'pizza': { name: 'Pizza', refrigeratorDays: 4, freezerDays: 60, category: 'leftovers' },
 
   // Pantry Items (Dry goods)
-  'rice': { name: 'Rice', pantryDays: 1095, category: 'grains' }, // 3 years
-  'pasta': { name: 'Pasta', pantryDays: 730, category: 'grains' }, // 2 years
-  'flour': { name: 'Flour', pantryDays: 365, category: 'grains' }, // 1 year
-  'beans': { name: 'Dried Beans', pantryDays: 1095, category: 'legumes' }, // 3 years
-  'lentils': { name: 'Lentils', pantryDays: 1095, category: 'legumes' }, // 3 years
-  'chickpeas': { name: 'Chickpeas', pantryDays: 1095, category: 'legumes' }, // 3 years
+  'rice': { name: 'Rice', pantryDays: 1095, refrigeratorDays: 7, category: 'grains' }, // 3 years pantry, 1 week refrigerated
+  'pasta': { name: 'Pasta', pantryDays: 730, refrigeratorDays: 7, category: 'grains' }, // 2 years pantry, 1 week refrigerated
+  'flour': { name: 'Flour', pantryDays: 365, refrigeratorDays: 14, category: 'grains' }, // 1 year pantry, 2 weeks refrigerated
+  'beans': { name: 'Dried Beans', pantryDays: 1095, refrigeratorDays: 14, category: 'legumes' }, // 3 years pantry, 2 weeks refrigerated
+  'lentils': { name: 'Lentils', pantryDays: 1095, refrigeratorDays: 14, category: 'legumes' }, // 3 years pantry, 2 weeks refrigerated
+  'chickpeas': { name: 'Chickpeas', pantryDays: 1095, refrigeratorDays: 14, category: 'legumes' }, // 3 years pantry, 2 weeks refrigerated
 
   // Canned Goods
-  'canned tomatoes': { name: 'Canned Tomatoes', pantryDays: 730, category: 'canned' }, // 2 years
-  'diced tomatoes': { name: 'Diced Tomatoes', pantryDays: 730, category: 'canned' },
+  'canned tomatoes': { name: 'Canned Tomatoes', pantryDays: 730, refrigeratorDays: 5, category: 'canned' }, // 2 years pantry, 5 days refrigerated once opened
+  'diced tomatoes': { name: 'Diced Tomatoes', pantryDays: 730, refrigeratorDays: 5, category: 'canned' },
   'tomato paste': { name: 'Tomato Paste', pantryDays: 730, refrigeratorDays: 5, category: 'canned' },
-  'canned beans': { name: 'Canned Beans', pantryDays: 730, category: 'canned' },
-  'corn': { name: 'Canned Corn', pantryDays: 730, category: 'canned' },
+  'canned beans': { name: 'Canned Beans', pantryDays: 730, refrigeratorDays: 3, category: 'canned' },
+  'corn': { name: 'Canned Corn', pantryDays: 730, refrigeratorDays: 3, category: 'canned' },
 
   // Oils & Condiments
-  'olive oil': { name: 'Olive Oil', pantryDays: 730, category: 'oils' }, // 2 years
-  'vegetable oil': { name: 'Vegetable Oil', pantryDays: 730, category: 'oils' },
-  'canola oil': { name: 'Canola Oil', pantryDays: 730, category: 'oils' },
+  'olive oil': { name: 'Olive Oil', pantryDays: 730, refrigeratorDays: 730, category: 'oils' }, // 2 years
+  'vegetable oil': { name: 'Vegetable Oil', pantryDays: 730, refrigeratorDays: 730, category: 'oils' },
+  'canola oil': { name: 'Canola Oil', pantryDays: 730, refrigeratorDays: 730, category: 'oils' },
   'soy sauce': { name: 'Soy Sauce', pantryDays: 1095, refrigeratorDays: 1095, category: 'condiments' },
-  'vinegar': { name: 'Vinegar', pantryDays: 1825, category: 'condiments' }, // 5 years
+  'vinegar': { name: 'Vinegar', pantryDays: 1825, refrigeratorDays: 1825, category: 'condiments' }, // 5 years
 
   // Spices & Seasonings
-  'salt': { name: 'Salt', pantryDays: 1825, category: 'spices' }, // 5 years
-  'black pepper': { name: 'Black Pepper', pantryDays: 1095, category: 'spices' }, // 3 years
-  'paprika': { name: 'Paprika', pantryDays: 730, category: 'spices' }, // 2 years
-  'garlic powder': { name: 'Garlic Powder', pantryDays: 1095, category: 'spices' },
+  'salt': { name: 'Salt', pantryDays: 1825, refrigeratorDays: 1825, category: 'spices' }, // 5 years
+  'black pepper': { name: 'Black Pepper', pantryDays: 1095, refrigeratorDays: 1095, category: 'spices' }, // 3 years
+  'paprika': { name: 'Paprika', pantryDays: 730, refrigeratorDays: 730, category: 'spices' }, // 2 years
+  'garlic powder': { name: 'Garlic Powder', pantryDays: 1095, refrigeratorDays: 1095, category: 'spices' },
 
   // Bread & Baked Goods
   'bread': { name: 'Bread', pantryDays: 3, refrigeratorDays: 7, freezerDays: 90, category: 'grains' },
-  'bagels': { name: 'Bagels', pantryDays: 5, freezerDays: 90, category: 'grains' },
+  'bagels': { name: 'Bagels', pantryDays: 5, refrigeratorDays: 7, freezerDays: 90, category: 'grains' },
 
   // Default fallbacks by category
   'default_vegetables': { name: 'Fresh Vegetables', refrigeratorDays: 7, category: 'vegetables' },
@@ -105,9 +105,9 @@ export const EXPIRATION_DATABASE: Record<string, ExpirationInfo> = {
   'default_dairy': { name: 'Dairy Products', refrigeratorDays: 7, category: 'dairy' },
   'default_meat': { name: 'Fresh Meat', refrigeratorDays: 2, freezerDays: 180, category: 'meat' },
   'default_leftovers': { name: 'Leftovers', refrigeratorDays: 3, freezerDays: 90, category: 'leftovers' },
-  'default_grains': { name: 'Grains', pantryDays: 365, category: 'grains' },
-  'default_canned': { name: 'Canned Goods', pantryDays: 730, category: 'canned' },
-  'default_spices': { name: 'Spices', pantryDays: 730, category: 'spices' },
+  'default_grains': { name: 'Grains', pantryDays: 365, refrigeratorDays: 14, category: 'grains' },
+  'default_canned': { name: 'Canned Goods', pantryDays: 730, refrigeratorDays: 5, category: 'canned' },
+  'default_spices': { name: 'Spices', pantryDays: 730, refrigeratorDays: 730, category: 'spices' },
 }
 
 export function getExpirationDefault(itemName: string, category?: string, location?: string): number {

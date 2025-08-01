@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { convertToCommonUnit } from '../utils/units'
 import { generateSamplePantryData, shouldShowStarterData } from '../utils/starterData'
+import { useAuth } from './AuthContext'
 
 export interface PantryItem {
   id: string
@@ -120,43 +121,74 @@ const mockPantryData: PantryLocation[] = [
 const PantryContext = createContext<PantryContextType | undefined>(undefined)
 
 export function PantryProvider({ children }: { children: ReactNode }) {
-  const [pantryData, setPantryData] = useState<PantryLocation[]>(() => {
-    const saved = localStorage.getItem('pantry-data')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        // Handle both old format (array) and new format (object)
-        return Array.isArray(parsed) ? parsed : parsed.locations || generateSamplePantryData()
-      } catch (error) {
-        console.error('Failed to parse saved pantry data:', error)
+  const { currentUser } = useAuth()
+  const [pantryData, setPantryData] = useState<PantryLocation[]>([])
+  const [depletedItems, setDepletedItems] = useState<DepletedItem[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Load user's pantry data from API
+  const loadPantryData = async (userId: string) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/pantry?userId=${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setPantryData(data.locations || [])
+        setDepletedItems(data.depletedItems || [])
+      } else {
+        // If no data found, create default pantry locations for new user
+        const defaultLocations = generateSamplePantryData()
+        setPantryData(defaultLocations)
+        await savePantryData(userId, defaultLocations, [])
       }
+    } catch (error) {
+      console.error('Failed to load pantry data:', error)
+      // Fallback to sample data
+      setPantryData(generateSamplePantryData())
+    } finally {
+      setLoading(false)
     }
-    
-    // Use starter data for new users, otherwise use the old mock data
-    return shouldShowStarterData() ? generateSamplePantryData() : mockPantryData
-  })
+  }
 
-  const [depletedItems, setDepletedItems] = useState<DepletedItem[]>(() => {
-    const saved = localStorage.getItem('depleted-items')
-    if (saved) {
-      try {
-        return JSON.parse(saved)
-      } catch (error) {
-        console.error('Failed to parse saved depleted items:', error)
-      }
+  // Save pantry data to API
+  const savePantryData = async (userId: string, locations: PantryLocation[], depleted: DepletedItem[]) => {
+    try {
+      await fetch('http://localhost:3001/api/pantry', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          locations,
+          depletedItems: depleted
+        })
+      })
+    } catch (error) {
+      console.error('Failed to save pantry data:', error)
     }
-    return []
-  })
+  }
 
-  // Save pantry data to localStorage whenever it changes
+  // Load data when user changes
   useEffect(() => {
-    localStorage.setItem('pantry-data', JSON.stringify(pantryData))
-  }, [pantryData])
+    if (currentUser) {
+      loadPantryData(currentUser.uid)
+    } else {
+      setPantryData([])
+      setDepletedItems([])
+      setLoading(false)
+    }
+  }, [currentUser])
 
-  // Save depleted items to localStorage whenever it changes
+  // Auto-save when data changes (with debouncing)
   useEffect(() => {
-    localStorage.setItem('depleted-items', JSON.stringify(depletedItems))
-  }, [depletedItems])
+    if (currentUser && !loading) {
+      const timeoutId = setTimeout(() => {
+        savePantryData(currentUser.uid, pantryData, depletedItems)
+      }, 1000) // Debounce saves by 1 second
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [currentUser, pantryData, depletedItems, loading])
 
   const findItemInPantry = (itemName: string): PantryItem | null => {
     const normalizedName = itemName.toLowerCase().trim()

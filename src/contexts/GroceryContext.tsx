@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { generateSampleGroceryData, shouldShowStarterData } from '../utils/starterData'
+import { useAuth } from './AuthContext'
 
 export interface GroceryItem {
   id: string
@@ -29,14 +30,14 @@ interface GroceryProviderProps {
 
 // Mock grocery data based on the chili recipe - this will be replaced with actual data management
 const initialMockData: GroceryItem[] = [
-  { id: '1', name: 'black beans', amount: '500', unit: 'g', category: 'dried', completed: false, addedDate: new Date().toISOString() },
-  { id: '2', name: 'beluga lentils', amount: '500', unit: 'g', category: 'dried', completed: false, addedDate: new Date().toISOString() },
+  { id: '1', name: 'black beans', amount: '500', unit: 'g', category: 'legumes', completed: false, addedDate: new Date().toISOString() },
+  { id: '2', name: 'beluga lentils', amount: '500', unit: 'g', category: 'legumes', completed: false, addedDate: new Date().toISOString() },
   { id: '3', name: 'diced tomatoes', amount: '4', unit: 'cans', category: 'canned', completed: false, addedDate: new Date().toISOString() },
   { id: '4', name: 'corn', amount: '1', unit: 'cans', category: 'canned', completed: false, addedDate: new Date().toISOString() },
   { id: '5', name: 'bell peppers', amount: '4', unit: 'pieces', category: 'vegetables', completed: false, addedDate: new Date().toISOString() },
-  { id: '6', name: 'onion', amount: '1', unit: 'pieces', category: 'vegetables', completed: false, addedDate: new Date().toISOString() },
-  { id: '7', name: 'garlic', amount: '2', unit: 'cloves', category: 'vegetables', completed: false, addedDate: new Date().toISOString() },
-  { id: '8', name: 'chilli peppers', amount: '2', unit: 'pieces', category: 'vegetables', completed: false, addedDate: new Date().toISOString() },
+  { id: '6', name: 'onion', amount: '1', unit: 'pieces', category: 'aromatics', completed: false, addedDate: new Date().toISOString() },
+  { id: '7', name: 'garlic', amount: '2', unit: 'cloves', category: 'aromatics', completed: false, addedDate: new Date().toISOString() },
+  { id: '8', name: 'chilli peppers', amount: '2', unit: 'pieces', category: 'spices', completed: false, addedDate: new Date().toISOString() },
   { id: '9', name: 'tomato paste', amount: '5', unit: 'tbsp', category: 'canned', completed: false, addedDate: new Date().toISOString() },
   { id: '10', name: 'canola oil', amount: '3', unit: 'tbsp', category: 'oils', completed: true, addedDate: new Date().toISOString() },
   { id: '11', name: 'vegetable broth', amount: '2', unit: 'cups', category: 'canned', completed: true, addedDate: new Date().toISOString() },
@@ -44,44 +45,70 @@ const initialMockData: GroceryItem[] = [
 ]
 
 export const GroceryProvider = ({ children }: GroceryProviderProps) => {
+  const { currentUser } = useAuth()
   const [groceryItems, setGroceryItems] = useState<GroceryItem[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('groceryItems')
-    if (stored && stored !== 'undefined' && stored !== 'null') {
-      try {
-        const parsed = JSON.parse(stored)
-        if (Array.isArray(parsed)) {
-          console.log('Loaded grocery items from localStorage:', parsed.length, 'items')
-          setGroceryItems(parsed)
-        } else {
-          console.warn('Invalid grocery items format in localStorage, using mock data')
-          setGroceryItems(initialMockData)
-        }
-      } catch (error) {
-        console.error('Failed to parse grocery items from localStorage:', error)
-        setGroceryItems(initialMockData)
+  // Load user's grocery data from API
+  const loadGroceryData = async (userId: string) => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/grocery?userId=${userId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setGroceryItems(data.items || [])
+      } else {
+        // If no data found, create default grocery items for new user
+        const defaultItems = generateSampleGroceryData()
+        setGroceryItems(defaultItems)
+        await saveGroceryData(userId, defaultItems)
       }
-    } else {
-      // Use starter data for new users, otherwise use mock data
-      const starterData = shouldShowStarterData() ? generateSampleGroceryData() : initialMockData
-      console.log('No valid grocery items in localStorage, using starter data')
-      setGroceryItems(starterData)
+    } catch (error) {
+      console.error('Failed to load grocery data:', error)
+      // Fallback to sample data
+      setGroceryItems(generateSampleGroceryData())
+    } finally {
+      setLoading(false)
     }
-  }, [])
+  }
 
-  // Save to localStorage whenever items change (with debouncing to prevent excessive saves)
+  // Save grocery data to API
+  const saveGroceryData = async (userId: string, items: GroceryItem[]) => {
+    try {
+      await fetch('http://localhost:3001/api/grocery', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          items
+        })
+      })
+    } catch (error) {
+      console.error('Failed to save grocery data:', error)
+    }
+  }
+
+  // Load data when user changes
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (groceryItems.length >= 0) { // Allow saving empty arrays
-        console.log('Saving grocery items to localStorage:', groceryItems.length, 'items')
-        localStorage.setItem('groceryItems', JSON.stringify(groceryItems))
-      }
-    }, 500) // Debounce saves by 500ms
-    
-    return () => clearTimeout(timeoutId)
-  }, [groceryItems])
+    if (currentUser) {
+      loadGroceryData(currentUser.uid)
+    } else {
+      setGroceryItems([])
+      setLoading(false)
+    }
+  }, [currentUser])
+
+  // Auto-save when data changes (with debouncing)
+  useEffect(() => {
+    if (currentUser && !loading) {
+      const timeoutId = setTimeout(() => {
+        saveGroceryData(currentUser.uid, groceryItems)
+      }, 1000) // Debounce saves by 1 second
+
+      return () => clearTimeout(timeoutId)
+    }
+  }, [currentUser, groceryItems, loading])
 
   // Helper function to parse amount strings like "2 cloves", "1/2 tsp", etc.
   const parseAmount = (amount?: string): { value: number; unit?: string } => {
