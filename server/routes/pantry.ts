@@ -30,10 +30,10 @@ app.get('/', async (c) => {
     })
 
     // Transform to match frontend interface
-    const transformedLocations = locations.map(loc => ({
+    const transformedLocations = locations.map((loc: any) => ({
       id: loc.id,
       name: loc.name,
-      items: loc.items.map(item => ({
+      items: loc.items.map((item: any) => ({
         id: item.id,
         name: item.name,
         amount: item.amount,
@@ -45,7 +45,7 @@ app.get('/', async (c) => {
       }))
     }))
 
-    const transformedDepleted = depletedItems.map(item => ({
+    const transformedDepleted = depletedItems.map((item: any) => ({
       id: item.id,
       name: item.name,
       lastAmount: item.lastAmount,
@@ -76,7 +76,7 @@ app.post('/', async (c) => {
     }
 
     // Use transaction to ensure data consistency
-    await db.$transaction(async (tx) => {
+    await db.$transaction(async (tx: any) => {
       // Delete existing data
       await tx.pantryItem.deleteMany({ where: { userId } })
       await tx.pantryLocation.deleteMany({ where: { userId } })

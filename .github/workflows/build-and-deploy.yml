@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Build and Deploy to Cloud Run
 
 on:
   push:
@@ -7,85 +7,55 @@ on:
     branches: [ main ]
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  PROJECT_ID: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+  REGION: us-central1
+  SERVICE_NAME: recipe-planner
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Log in to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        file: ./Dockerfile.production
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-
-  deploy:
-    needs: build
+  build-and-deploy:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Configure kubectl
-      uses: azure/k8s-set-context@v3
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
       with:
-        method: kubeconfig
-        kubeconfig: ${{ secrets.KUBECONFIG }}
+        credentials_json: ${{ secrets.GOOGLE_CREDENTIALS }}
 
-    - name: Update image in deployment
-      run: |
-        sed -i "s|recipe-planner:latest|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}|g" k8s/app.yaml
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
 
-    - name: Deploy to Kubernetes
-      run: |
-        kubectl apply -f k8s/namespace.yaml
-        kubectl apply -f k8s/configmap.yaml
-        kubectl apply -f k8s/secrets.yaml
-        kubectl apply -f k8s/postgres.yaml
-        kubectl apply -f k8s/app.yaml
+    - name: Configure Docker for GCR
+      run: gcloud auth configure-docker
 
-    - name: Wait for deployment
+    - name: Build and push Docker image
       run: |
-        kubectl wait --for=condition=ready pod -l app=recipe-planner-app -n recipe-planner --timeout=300s
+        docker build -f Dockerfile.production -t gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA .
+        docker push gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA
 
-    - name: Get deployment status
+    - name: Deploy to Cloud Run
       run: |
-        kubectl get pods -n recipe-planner
-        kubectl get services -n recipe-planner
+        gcloud run deploy $SERVICE_NAME \
+          --image gcr.io/$PROJECT_ID/$SERVICE_NAME:$GITHUB_SHA \
+          --platform managed \
+          --region $REGION \
+          --allow-unauthenticated \
+          --port 3000 \
+          --memory 1Gi \
+          --cpu 1 \
+          --min-instances 0 \
+          --max-instances 10 \
+          --set-env-vars "NODE_ENV=production" \
+          --set-secrets "DATABASE_URL=DATABASE_URL:latest,FIREBASE_API_KEY=FIREBASE_API_KEY:latest,FIREBASE_AUTH_DOMAIN=FIREBASE_AUTH_DOMAIN:latest,FIREBASE_PROJECT_ID=FIREBASE_PROJECT_ID:latest,JWT_SECRET=JWT_SECRET:latest,ENCRYPTION_KEY=ENCRYPTION_KEY:latest"
+
+    - name: Get service URL
+      run: |
+        SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format="value(status.url)")
+        echo "Service deployed to: $SERVICE_URL"

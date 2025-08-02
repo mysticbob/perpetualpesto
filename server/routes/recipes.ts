@@ -155,7 +155,7 @@ app.post('/', async (c) => {
       recipe = existingRecipe
     } else {
       // Create new recipe and user association
-      recipe = await prisma.$transaction(async (tx) => {
+      recipe = await prisma.$transaction(async (tx: any) => {
         const newRecipe = await tx.recipe.create({
           data: {
             name,
@@ -169,16 +169,16 @@ app.post('/', async (c) => {
             createdBy: userId,
             isPublic: true, // Make recipes public by default for sharing
             ingredients: {
-              create: ingredients.map((ingredient: any, index: number) => ({
-                name: ingredient.name,
-                amount: ingredient.amount,
-                unit: ingredient.unit,
+              create: ingredients.map((ing: any, index: number) => ({
+                name: ing.name,
+                amount: ing.amount,
+                unit: ing.unit,
                 order: index
               }))
             },
             instructions: {
-              create: instructions.map((instruction: any, index: number) => ({
-                step: instruction.step,
+              create: instructions.map((inst: any, index: number) => ({
+                step: inst.step,
                 order: index
               }))
             }
@@ -346,7 +346,7 @@ app.put('/:id', async (c) => {
     const { name, description, prepTime, cookTime, totalTime, servings, imageUrl, ingredients, instructions } = body
     
     // Use transaction for atomic updates
-    const recipe = await prisma.$transaction(async (tx) => {
+    const recipe = await prisma.$transaction(async (tx: any) => {
       // Delete existing ingredients and instructions in parallel
       await Promise.all([
         tx.ingredient.deleteMany({ where: { recipeId: id } }),
@@ -366,16 +366,16 @@ app.put('/:id', async (c) => {
           imageUrl,
           updatedAt: new Date(),
           ingredients: {
-            create: ingredients.map((ingredient: any, index: number) => ({
-              name: ingredient.name,
-              amount: ingredient.amount,
-              unit: ingredient.unit,
+            create: ingredients.map((ing: any, index: number) => ({
+              name: ing.name,
+              amount: ing.amount,
+              unit: ing.unit,
               order: index
             }))
           },
           instructions: {
-            create: instructions.map((instruction: any, index: number) => ({
-              step: instruction.step,
+            create: instructions.map((inst: any, index: number) => ({
+              step: inst.step,
               order: index
             }))
           }
@@ -517,7 +517,7 @@ app.get('/stats', async (c) => {
     return c.json({
       totalRecipes,
       averageCookTime: Math.round(avgCookTime._avg.totalTime || 0),
-      mostUsedIngredients: mostUsedIngredients.map(ing => ({
+      mostUsedIngredients: mostUsedIngredients.map((ing: any) => ({
         name: ing.name,
         count: ing._count.name
       }))

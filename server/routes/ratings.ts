@@ -62,7 +62,7 @@ app.get('/recipe/:recipeId/stats', async (c) => {
     return c.json({
       averageRating: stats._avg.rating || 0,
       totalRatings: stats._count.rating || 0,
-      distribution: ratingDistribution.reduce((acc, item) => {
+      distribution: ratingDistribution.reduce((acc: any, item: any) => {
         acc[item.rating] = item._count.rating
         return acc
       }, {} as Record<number, number>)
@@ -103,7 +103,7 @@ app.get('/recipe/:recipeId', async (c) => {
     // Filter out reviews if not requested
     const result = includeReviews 
       ? ratings 
-      : ratings.map(({ review, ...rating }) => rating)
+      : ratings.map(({ review, ...rating }: any) => rating)
 
     return c.json(result)
   } catch (error) {

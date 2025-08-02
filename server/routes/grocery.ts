@@ -18,7 +18,7 @@ app.get('/', async (c) => {
     })
 
     // Transform to match frontend interface
-    const transformedItems = groceryItems.map(item => ({
+    const transformedItems = groceryItems.map((item: any) => ({
       id: item.id,
       name: item.name,
       amount: item.amount,
@@ -45,7 +45,7 @@ app.post('/', async (c) => {
     }
 
     // Use transaction to ensure data consistency
-    await db.$transaction(async (tx) => {
+    await db.$transaction(async (tx: any) => {
       // Delete existing items
       await tx.groceryItem.deleteMany({ where: { userId } })
 
