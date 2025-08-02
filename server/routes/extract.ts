@@ -134,7 +134,7 @@ function extractFromMicrodata($: cheerio.CheerioAPI): ExtractedRecipe | null {
                  recipeEl.find('[itemprop="image"]').attr('data-src') ||
                  recipeEl.find('[itemprop="image"]').attr('content')
   
-  const ingredients = recipeEl.find('[itemprop="recipeIngredient"]').map((_, el) => {
+  const ingredients = recipeEl.find('[itemprop="recipeIngredient"]').map((_: any, el: any) => {
     const text = $(el).text().trim()
     return {
       name: text,
@@ -143,7 +143,7 @@ function extractFromMicrodata($: cheerio.CheerioAPI): ExtractedRecipe | null {
     }
   }).get()
 
-  const instructions = recipeEl.find('[itemprop="recipeInstructions"]').map((_, el) => ({
+  const instructions = recipeEl.find('[itemprop="recipeInstructions"]').map((_: any, el: any) => ({
     step: $(el).text().trim()
   })).get()
 
@@ -182,7 +182,7 @@ function extractHeuristically($: cheerio.CheerioAPI): ExtractedRecipe | null {
   
   let ingredients: any[] = []
   for (const selector of ingredientSelectors) {
-    const found = $(selector).map((_, el) => {
+    const found = $(selector).map((_: any, el: any) => {
       const text = $(el).text().trim()
       return text ? {
         name: text,
@@ -209,9 +209,9 @@ function extractHeuristically($: cheerio.CheerioAPI): ExtractedRecipe | null {
   
   let instructions: any[] = []
   for (const selector of instructionSelectors) {
-    const found = $(selector).map((_, el) => ({
+    const found = $(selector).map((_: any, el: any) => ({
       step: $(el).text().trim()
-    })).get().filter(inst => inst.step)
+    })).get().filter((inst: any) => inst.step)
     
     if (found.length > 0) {
       instructions = found
@@ -307,7 +307,7 @@ function extractRecipeImage($: cheerio.CheerioAPI, recipeName: string): string |
   if (imageUrl && isValidImageUrl(imageUrl)) return imageUrl
   
   // Strategy 5: Fall back to first reasonable-sized image
-  const firstImg = $('img').filter((_, img) => {
+  const firstImg = $('img').filter((_: any, img: any) => {
     const $img = $(img)
     const src = $img.attr('src') || 
                 $img.attr('data-src') ||

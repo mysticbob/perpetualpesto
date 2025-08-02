@@ -239,13 +239,13 @@ async function findDuplicateRecipe(name: string, ingredients: any[], instruction
     if (recipe.ingredients.length === ingredients.length && 
         recipe.instructions.length === instructions.length) {
       
-      const ingredientsMatch = recipe.ingredients.every((ing, index) => 
+      const ingredientsMatch = recipe.ingredients.every((ing: any, index: number) => 
         ing.name.toLowerCase() === ingredients[index]?.name?.toLowerCase() &&
         ing.amount === ingredients[index]?.amount &&
         ing.unit === ingredients[index]?.unit
       )
       
-      const instructionsMatch = recipe.instructions.every((inst, index) =>
+      const instructionsMatch = recipe.instructions.every((inst: any, index: number) =>
         inst.step === instructions[index]?.step
       )
       
@@ -439,7 +439,7 @@ app.delete('/bulk', async (c) => {
 // Search recipes by ingredients
 app.get('/search/ingredients', async (c) => {
   try {
-    const ingredients = c.req.query('ingredients')?.split(',').map(i => i.trim()) || []
+    const ingredients = c.req.query('ingredients')?.split(',').map((i: string) => i.trim()) || []
     const matchAll = c.req.query('matchAll') === 'true'
     
     if (ingredients.length === 0) {
