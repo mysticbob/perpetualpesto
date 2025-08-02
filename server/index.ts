@@ -53,8 +53,25 @@ app.get('/health', async (c) => {
 })
 
 const port = Number(process.env.PORT) || 3001
+
+// Check for required environment variables
+const requiredEnvVars = ['DATABASE_URL']
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar])
+
+if (missingEnvVars.length > 0) {
+  console.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`)
+  console.error('Available environment variables:')
+  Object.keys(process.env).forEach(key => {
+    if (key.includes('DATABASE') || key.includes('FIREBASE') || key.includes('PORT')) {
+      console.error(`  ${key}=${process.env[key] ? '[SET]' : '[NOT SET]'}`)
+    }
+  })
+  process.exit(1)
+}
+
 console.log(`🚀 Server is running on port ${port}`)
 console.log(`📊 Health check: http://localhost:${port}/health`)
+console.log(`🗄️ Database URL: ${process.env.DATABASE_URL ? '[SET]' : '[NOT SET]'}`)
 
 serve({
   fetch: app.fetch,
