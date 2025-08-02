@@ -27,7 +27,7 @@ import {
   GridItem
 } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
-import { CloseIcon, TimeIcon, EditIcon } from './icons/CustomIcons'
+import { TimeIcon, EditIcon } from './icons/CustomIcons'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { useGrocery } from '../contexts/GroceryContext'
 import { usePantry } from '../contexts/PantryContext'
@@ -202,18 +202,9 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
     <Box minH="100vh" bg={bgColor}>
       {/* Header */}
       <Box p={6} borderBottom="1px" borderColor={borderColor}>
-        <HStack justify="space-between" align="start">
-          <VStack align="start" spacing={4} flex={1}>
-            <HStack>
-              <IconButton
-                aria-label="Close recipe"
-                icon={<CloseIcon />}
-                size="sm"
-                variant="ghost"
-                onClick={onClose}
-              />
-              <Heading size="xl">{recipe.name}</Heading>
-            </HStack>
+        <VStack align="start" spacing={4} w="full">
+          <HStack justify="space-between" align="start" w="full">
+            <Heading size="xl">{recipe.name}</Heading>
             
             {/* Rating Display */}
             <Box>
@@ -224,8 +215,9 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
                 onRatingChange={handleRatingChange}
               />
             </Box>
-            
-            <HStack spacing={4} wrap="wrap">
+          </HStack>
+          
+          <HStack spacing={4} wrap="wrap">
               <HStack spacing={1}>
                 <EditIcon color={mutedColor} />
                 <Text fontSize="sm" color={mutedColor}>vera.cooking</Text>
@@ -291,14 +283,28 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
               </Button>
             </HStack>
 
-            {recipe.description && (
-              <Text color={mutedColor} fontSize="md" maxW="3xl" lineHeight="1.6">
+          {recipe.description && (
+            <HStack spacing={6} align="start" w="full">
+              <Text color={mutedColor} fontSize="md" lineHeight="1.6" flex={1}>
                 {recipe.description}
               </Text>
-            )}
-          </VStack>
+              
+              {recipe.imageUrl && (
+                <Image
+                  src={recipe.imageUrl}
+                  alt={recipe.name}
+                  w="300px"
+                  h="200px"
+                  objectFit="cover"
+                  borderRadius="lg"
+                  shadow="lg"
+                  flexShrink={0}
+                />
+              )}
+            </HStack>
+          )}
 
-          {recipe.imageUrl && (
+          {!recipe.description && recipe.imageUrl && (
             <Image
               src={recipe.imageUrl}
               alt={recipe.name}
@@ -309,7 +315,7 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
               shadow="lg"
             />
           )}
-        </HStack>
+        </VStack>
       </Box>
 
       {/* Main Content */}

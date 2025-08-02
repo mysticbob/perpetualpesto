@@ -18,7 +18,7 @@ import {
   useDisclosure
 } from '@chakra-ui/react'
 import { useState, useEffect, useRef } from 'react'
-import { CloseIcon, TimeIcon, CalendarIcon, EditIcon } from './icons/CustomIcons'
+import { TimeIcon, CalendarIcon, EditIcon } from './icons/CustomIcons'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { useAuth } from '../contexts/AuthContext'
 import { formatIngredientAmount } from '../utils/units'
@@ -191,24 +191,15 @@ export default function RecipeView({ recipe, onClose, onStartCooking }: RecipeVi
       <Box p={4} borderBottom="1px" borderColor={borderColor} flexShrink={0}>
         <VStack align="start" spacing={3}>
           <HStack justify="space-between" w="full">
-            <HStack>
-              <IconButton
-                aria-label="Close recipe"
-                icon={<CloseIcon />}
+            <VStack align="start" spacing={1}>
+              <Heading size="md">{recipe.name}</Heading>
+              <CompactStarRating 
+                rating={userRating || ratingStats?.averageRating || 0} 
                 size="sm"
-                variant="ghost"
-                onClick={onClose}
+                isInteractive={true}
+                onRatingChange={handleRatingChange}
               />
-              <VStack align="start" spacing={1}>
-                <Heading size="md">{recipe.name}</Heading>
-                <CompactStarRating 
-                  rating={userRating || ratingStats?.averageRating || 0} 
-                  size="sm"
-                  isInteractive={true}
-                  onRatingChange={handleRatingChange}
-                />
-              </VStack>
-            </HStack>
+            </VStack>
             
             {recipe.imageUrl && (
               <Image

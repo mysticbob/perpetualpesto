@@ -50,6 +50,12 @@ interface PantryContextType {
     location?: string
     currentAmount?: string
     remainingAmount?: string
+    substitution?: {
+      available: boolean
+      item: PantryItem
+      originalName: string
+      suggestedName: string
+    }
   }
 }
 
@@ -190,6 +196,93 @@ export function PantryProvider({ children }: { children: ReactNode }) {
     }
   }, [currentUser, pantryData, depletedItems, loading])
 
+  const findSubstitution = (itemName: string): PantryItem | null => {
+    const normalizedName = itemName.toLowerCase().trim()
+    
+    // Common substitution patterns
+    const substitutionRules = [
+      // Onion variations
+      { pattern: /^(yellow|white|red|sweet)\s+onion/, replacement: 'onion' },
+      { pattern: /^onion,?\s+(yellow|white|red|sweet)/, replacement: 'onion' },
+      
+      // Pepper variations  
+      { pattern: /^(red|green|yellow|orange)\s+bell\s+pepper/, replacement: 'bell pepper' },
+      { pattern: /^bell\s+pepper,?\s+(red|green|yellow|orange)/, replacement: 'bell pepper' },
+      
+      // Tomato variations
+      { pattern: /^(fresh|ripe|cherry|roma|grape)\s+tomato/, replacement: 'tomato' },
+      { pattern: /^tomato,?\s+(fresh|ripe|cherry|roma|grape)/, replacement: 'tomato' },
+      
+      // Garlic variations
+      { pattern: /^fresh\s+garlic/, replacement: 'garlic' },
+      { pattern: /^garlic\s+cloves?/, replacement: 'garlic' },
+      
+      // Herb variations
+      { pattern: /^fresh\s+(basil|oregano|thyme|rosemary|sage|parsley|cilantro)/, replacement: '$1' },
+      { pattern: /^dried\s+(basil|oregano|thyme|rosemary|sage|parsley|cilantro)/, replacement: '$1' },
+      
+      // Cheese variations
+      { pattern: /^(aged|sharp|mild|extra sharp)\s+(cheddar|parmesan|mozzarella)/, replacement: '$2' },
+      
+      // Oil variations
+      { pattern: /^extra\s+virgin\s+olive\s+oil/, replacement: 'olive oil' },
+      { pattern: /^(light|pure)\s+olive\s+oil/, replacement: 'olive oil' },
+      
+      // Generic descriptors
+      { pattern: /^(organic|free-range|grass-fed|wild-caught)\s+(.+)/, replacement: '$2' },
+      { pattern: /^(.+?),?\s+(organic|free-range|grass-fed|wild-caught)/, replacement: '$1' }
+    ]
+    
+    // Try each substitution rule
+    for (const rule of substitutionRules) {
+      const match = normalizedName.match(rule.pattern)
+      if (match) {
+        const substituteName = rule.replacement.replace(/\$(\d+)/g, (_, num) => match[parseInt(num)] || '')
+        console.log(`🔄 Trying substitution: "${itemName}" -> "${substituteName}"`)
+        
+        // Look for the substitution in pantry
+        for (const location of pantryData) {
+          for (const item of location.items) {
+            const itemNameNormalized = item.name.toLowerCase().trim()
+            
+            // Check for exact or close match with substitution
+            if (itemNameNormalized === substituteName || 
+                itemNameNormalized.includes(substituteName) ||
+                substituteName.includes(itemNameNormalized)) {
+              console.log(`✅ Found substitution: "${item.name}" for "${itemName}"`)
+              return item
+            }
+          }
+        }
+      }
+    }
+    
+    // Try removing adjectives for broader matching
+    const withoutAdjectives = normalizedName
+      .replace(/\b(fresh|dried|frozen|canned|organic|raw|cooked|chopped|diced|sliced|minced|whole|ground|extra|virgin|pure|aged|sharp|mild|sweet|hot|spicy|large|medium|small)\s+/g, '')
+      .replace(/\s+\b(fresh|dried|frozen|canned|organic|raw|cooked|chopped|diced|sliced|minced|whole|ground|extra|virgin|pure|aged|sharp|mild|sweet|hot|spicy|large|medium|small)\b/g, '')
+      .trim()
+    
+    if (withoutAdjectives !== normalizedName && withoutAdjectives.length > 2) {
+      console.log(`🔄 Trying without adjectives: "${itemName}" -> "${withoutAdjectives}"`)
+      
+      for (const location of pantryData) {
+        for (const item of location.items) {
+          const itemNameNormalized = item.name.toLowerCase().trim()
+          
+          if (itemNameNormalized === withoutAdjectives ||
+              (withoutAdjectives.length > 4 && itemNameNormalized.includes(withoutAdjectives)) ||
+              (withoutAdjectives.length > 4 && withoutAdjectives.includes(itemNameNormalized))) {
+            console.log(`✅ Found substitution without adjectives: "${item.name}" for "${itemName}"`)
+            return item
+          }
+        }
+      }
+    }
+    
+    return null
+  }
+
   const findItemInPantry = (itemName: string): PantryItem | null => {
     const normalizedName = itemName.toLowerCase().trim()
     console.log(`🔍 Looking for ingredient: "${itemName}" (normalized: "${normalizedName}")`)
@@ -274,6 +367,20 @@ export function PantryProvider({ children }: { children: ReactNode }) {
     const item = findItemInPantry(itemName)
     
     if (!item) {
+      // Try to find a substitution
+      const substitutionItem = findSubstitution(itemName)
+      if (substitutionItem) {
+        const location = pantryData.find(loc => loc.id === substitutionItem.location)?.name || substitutionItem.location
+        return {
+          available: false,
+          substitution: {
+            available: true,
+            item: substitutionItem,
+            originalName: itemName,
+            suggestedName: substitutionItem.name
+          }
+        }
+      }
       return { available: false }
     }
 

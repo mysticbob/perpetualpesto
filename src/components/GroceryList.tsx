@@ -281,58 +281,78 @@ export default function GroceryList({ onBack }: GroceryListProps) {
     // Simplify the ingredient name
     const simplifiedName = simplifyIngredientName(groceryItem.name)
     
-    // Determine the best pantry location based on item category
-    const getLocationForCategory = (category?: string) => {
-      switch (category) {
-        case 'dairy':
-        case 'meat':
-          return 'refrigerator'
-        case 'vegetables':
-          return 'refrigerator' // Fresh produce goes to fridge
-        case 'grains':
-        case 'legumes':
-        case 'oils':
-        case 'canned':
-        case 'spices':
-        case 'aromatics':
-          return 'pantry'
-        case 'desserts':
-          return 'freezer' // Ice cream and frozen desserts
-        default:
-          return 'refrigerator' // Default to refrigerator for fresh items
-      }
-    }
-
-    const targetLocationId = getLocationForCategory(groceryItem.category)
-    const expirationDate = calculateExpirationDate(simplifiedName, groceryItem.category, targetLocationId).toISOString()
-
-    setPantryData(prev => prev.map(location => {
-      if (location.id !== targetLocationId) return location
-
-      // Check if an item with the same simplified name already exists
-      const existingItemIndex = location.items.findIndex(item => 
-        item.name.toLowerCase().trim() === simplifiedName.toLowerCase().trim()
-      )
-
-      if (existingItemIndex !== -1) {
-        // Consolidate with existing item
-        const existingItem = location.items[existingItemIndex]
-        const existingParsed = parseAmountForPantry(existingItem.amount)
-        const newParsed = parseAmountForPantry(groceryItem.amount)
-        const totalAmount = existingParsed.value + newParsed.value
-
-        // Update the existing item with consolidated amount
-        const updatedItems = [...location.items]
-        updatedItems[existingItemIndex] = {
-          ...existingItem,
-          amount: formatPantryAmount(totalAmount),
-          unit: groceryItem.unit || existingItem.unit || 'pieces',
-          addedDate: now, // Update the added date
-          expirationDate // Update expiration date
+    // First, check if this item already exists anywhere in the pantry
+    let existingLocation: string | null = null
+    let existingItemIndex: number = -1
+    
+    setPantryData(prev => {
+      // Find if the item exists anywhere
+      for (const location of prev) {
+        const itemIndex = location.items.findIndex(item => 
+          item.name.toLowerCase().trim() === simplifiedName.toLowerCase().trim()
+        )
+        if (itemIndex !== -1) {
+          existingLocation = location.id
+          existingItemIndex = itemIndex
+          break
         }
-
-        return { ...location, items: updatedItems }
-      } else {
+      }
+      
+      // If item exists, consolidate in its current location
+      if (existingLocation && existingItemIndex !== -1) {
+        return prev.map(location => {
+          if (location.id !== existingLocation) return location
+          
+          const existingItem = location.items[existingItemIndex]
+          const existingParsed = parseAmountForPantry(existingItem.amount)
+          const newParsed = parseAmountForPantry(groceryItem.amount)
+          const totalAmount = existingParsed.value + newParsed.value
+          
+          // Calculate expiration date for the existing location
+          const expirationDate = calculateExpirationDate(simplifiedName, existingItem.category, location.id).toISOString()
+          
+          // Update the existing item with consolidated amount
+          const updatedItems = [...location.items]
+          updatedItems[existingItemIndex] = {
+            ...existingItem,
+            amount: formatPantryAmount(totalAmount),
+            unit: groceryItem.unit || existingItem.unit || 'pieces',
+            addedDate: now, // Update the added date
+            expirationDate // Update expiration date
+          }
+          
+          return { ...location, items: updatedItems }
+        })
+      }
+      
+      // Item doesn't exist anywhere, add to category-appropriate location
+      const getLocationForCategory = (category?: string) => {
+        switch (category) {
+          case 'dairy':
+          case 'meat':
+            return 'refrigerator'
+          case 'vegetables':
+            return 'refrigerator' // Fresh produce goes to fridge
+          case 'grains':
+          case 'legumes':
+          case 'oils':
+          case 'canned':
+          case 'spices':
+          case 'aromatics':
+            return 'pantry'
+          case 'desserts':
+            return 'freezer' // Ice cream and frozen desserts
+          default:
+            return 'refrigerator' // Default to refrigerator for fresh items
+        }
+      }
+      
+      const targetLocationId = getLocationForCategory(groceryItem.category)
+      const expirationDate = calculateExpirationDate(simplifiedName, groceryItem.category, targetLocationId).toISOString()
+      
+      return prev.map(location => {
+        if (location.id !== targetLocationId) return location
+        
         // Add as new item
         const newPantryItem = {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
@@ -344,10 +364,10 @@ export default function GroceryList({ onBack }: GroceryListProps) {
           addedDate: now,
           expirationDate
         }
-
+        
         return { ...location, items: [...location.items, newPantryItem] }
-      }
-    }))
+      })
+    })
   }
 
   const addNewItem = () => {

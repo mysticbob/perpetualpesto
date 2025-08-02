@@ -233,27 +233,74 @@ export const GroceryProvider = ({ children }: GroceryProviderProps) => {
   }
 
   const addGroceryItem = (item: Omit<GroceryItem, 'id' | 'completed' | 'addedDate'>) => {
-    // Check if item with same name and compatible unit already exists
+    // Check if item with same name already exists (not completed)
+    const normalizedItemName = item.name.toLowerCase().trim()
     const normalizedItemUnit = normalizeUnit(item.unit)
-    const existingItem = groceryItems.find(existing => 
-      existing.name.toLowerCase().trim() === item.name.toLowerCase().trim() &&
-      normalizeUnit(existing.unit) === normalizedItemUnit &&
-      !existing.completed &&
-      normalizedItemUnit !== '' // Only consolidate if we have a valid unit
-    )
+    
+    const existingItem = groceryItems.find(existing => {
+      const existingName = existing.name.toLowerCase().trim()
+      const existingUnit = normalizeUnit(existing.unit)
+      
+      // Must have same name and not be completed
+      if (existingName !== normalizedItemName || existing.completed) {
+        return false
+      }
+      
+      // Case 1: Both have the same normalized unit (including both empty)
+      if (existingUnit === normalizedItemUnit) {
+        return true
+      }
+      
+      // Case 2: One has no unit and the other has a unit - still consolidate by name
+      if (!existingUnit || !normalizedItemUnit) {
+        return true
+      }
+      
+      return false
+    })
 
-    if (existingItem && item.amount && existingItem.amount && normalizedItemUnit) {
-      // Consolidate amounts only if units are compatible
-      const existingParsed = parseAmount(existingItem.amount)
-      const newParsed = parseAmount(item.amount)
-      const totalAmount = existingParsed.value + newParsed.value
+    if (existingItem) {
+      // Consolidate with existing item
+      let consolidatedAmount = existingItem.amount
+      let consolidatedUnit = existingItem.unit
+      
+      // Try to add amounts if both have amounts
+      if (item.amount && existingItem.amount) {
+        try {
+          const existingParsed = parseAmount(existingItem.amount)
+          const newParsed = parseAmount(item.amount)
+          
+          // If units match or one is empty, we can add amounts
+          const existingUnit = normalizeUnit(existingItem.unit)
+          const newUnit = normalizeUnit(item.unit)
+          
+          if (existingUnit === newUnit || !existingUnit || !newUnit) {
+            const totalAmount = existingParsed.value + newParsed.value
+            consolidatedAmount = formatAmount(totalAmount)
+            // Keep the more specific unit (non-empty over empty)
+            consolidatedUnit = item.unit || existingItem.unit
+          } else {
+            // Units don't match - keep existing amount and note the addition
+            consolidatedAmount = `${existingItem.amount} + ${item.amount}`
+            consolidatedUnit = existingItem.unit
+          }
+        } catch (error) {
+          // If parsing fails, concatenate amounts
+          consolidatedAmount = `${existingItem.amount} + ${item.amount}`
+        }
+      } else if (item.amount && !existingItem.amount) {
+        // New item has amount, existing doesn't
+        consolidatedAmount = item.amount
+        consolidatedUnit = item.unit || existingItem.unit
+      }
+      // If existing has amount but new doesn't, keep existing amount
       
       setGroceryItems(prev => prev.map(grocery =>
         grocery.id === existingItem.id
           ? { 
               ...grocery, 
-              amount: formatAmount(totalAmount),
-              unit: item.unit || grocery.unit, // Keep the more specific unit
+              amount: consolidatedAmount,
+              unit: consolidatedUnit,
               category: item.category || grocery.category,
               completed: false 
             }

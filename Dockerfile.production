@@ -1,0 +1,56 @@
+# Multi-stage production Dockerfile for Recipe Planner
+# Supports both x86_64 and arm64 architectures
+
+# Stage 1: Build stage
+FROM --platform=$BUILDPLATFORM oven/bun:1-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lockb* ./
+
+# Install dependencies
+RUN bun install --frozen-lockfile --production=false
+
+# Copy source code
+COPY . .
+
+# Generate Prisma client
+RUN bunx prisma generate
+
+# Build the application
+RUN bun run build
+
+# Stage 2: Production stage
+FROM --platform=$TARGETPLATFORM oven/bun:1-alpine AS production
+
+# Install security updates
+RUN apk --no-cache upgrade && \
+    apk --no-cache add dumb-init
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S app -u 1001
+
+WORKDIR /app
+
+# Copy built application from builder stage
+COPY --from=builder --chown=app:nodejs /app/dist ./dist
+COPY --from=builder --chown=app:nodejs /app/server ./server
+COPY --from=builder --chown=app:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=app:nodejs /app/package.json ./
+COPY --from=builder --chown=app:nodejs /app/prisma ./prisma
+
+# Switch to non-root user
+USER app
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD bun --version || exit 1
+
+# Expose port
+EXPOSE 3000
+
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["bun", "run", "start"]

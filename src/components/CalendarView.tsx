@@ -38,10 +38,11 @@ import {
   Center
 } from '@chakra-ui/react'
 import { useState, useEffect } from 'react'
-import { ChevronLeftIcon, ChevronRightIcon, AddIcon, CalendarIcon, EditIcon, DeleteIcon, SettingsIcon, SearchIcon, BreakfastIcon, LunchIcon, DinnerIcon } from './icons/CustomIcons'
+import { ChevronLeftIcon, ChevronRightIcon, AddIcon, CalendarIcon, EditIcon, DeleteIcon, SettingsIcon, SearchIcon, BreakfastIcon, LunchIcon, DinnerIcon, GroceryIcon } from './icons/CustomIcons'
 import { usePantry, PantryItem } from '../contexts/PantryContext'
 import { useAuth } from '../contexts/AuthContext'
 import { usePreferences } from '../contexts/PreferencesContext'
+import { useGrocery } from '../contexts/GroceryContext'
 
 interface MealPlan {
   id: string
@@ -67,6 +68,16 @@ interface Recipe {
   cookTime?: number
   servings?: number
   imageUrl?: string
+  ingredients: Array<{
+    id: string
+    name: string
+    amount?: string
+    unit?: string
+  }>
+  instructions: Array<{
+    id: string
+    step: string
+  }>
 }
 
 interface CalendarViewProps {
@@ -102,6 +113,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { pantryData } = usePantry()
   const { preferences } = usePreferences()
+  const { addGroceryItem } = useGrocery()
   const toast = useToast()
   
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([
@@ -182,7 +194,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
       
       setLoadingRecipes(true)
       try {
-        const response = await fetch(`http://localhost:3001/api/recipes?limit=100&userId=${currentUser.uid}`)
+        const response = await fetch(`http://localhost:3001/api/recipes?limit=100&userId=${currentUser.uid}&includeDetails=true`)
         if (response.ok) {
           const data: PaginatedResponse = await response.json()
           setAvailableRecipes(data.recipes || [])
@@ -274,12 +286,30 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
   }
 
   const getRecommendedRecipes = (expiringItems: PantryItem[]): Recipe[] => {
-    if (expiringItems.length === 0 || !availableRecipes || availableRecipes.length === 0) return []
+    console.log('🔍 getRecommendedRecipes called with:', expiringItems.length, 'expiring items')
+    console.log('📋 Available recipes count:', availableRecipes?.length || 0)
+    
+    if (expiringItems.length === 0 || !availableRecipes || availableRecipes.length === 0) {
+      console.log('❌ No expiring items or recipes available')
+      return []
+    }
     
     // Get ingredient names from expiring items
     const expiringIngredientNames = expiringItems.map(item => 
       item.name.toLowerCase().trim()
     )
+    console.log('🥘 Expiring ingredient names:', expiringIngredientNames)
+    
+    // Log first recipe ingredients for debugging
+    if (availableRecipes.length > 0) {
+      const firstRecipe = availableRecipes[0]
+      if (firstRecipe.ingredients && Array.isArray(firstRecipe.ingredients)) {
+        const ingredientNames = firstRecipe.ingredients.map(ing => ing.name).filter(Boolean)
+        console.log(`📖 Sample recipe "${firstRecipe.name}": [${ingredientNames.slice(0, 3).join(', ')}...]`)
+      } else {
+        console.log(`📖 Sample recipe "${firstRecipe.name}": NO INGREDIENTS ARRAY`)
+      }
+    }
     
     // Filter recipes that contain any of the expiring ingredients
     const recommendedRecipes = availableRecipes.filter(recipe => {
@@ -288,18 +318,48 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
         return false
       }
       
-      return recipe.ingredients.some(ingredient => {
+      const hasMatchingIngredient = recipe.ingredients.some(ingredient => {
         // Check if ingredient has name property
         if (!ingredient || !ingredient.name) {
           return false
         }
         
         const ingredientName = ingredient.name.toLowerCase().trim()
-        return expiringIngredientNames.some(expiringName => 
-          ingredientName.includes(expiringName) || expiringName.includes(ingredientName)
-        )
+        const match = expiringIngredientNames.some(expiringName => {
+          // Try exact match first
+          if (ingredientName === expiringName) return true
+          
+          // Try contains match
+          if (ingredientName.includes(expiringName) || expiringName.includes(ingredientName)) return true
+          
+          // Try word-based matching for better results
+          const ingredientWords = ingredientName.split(/\s+/)
+          const expiringWords = expiringName.split(/\s+/)
+          
+          return ingredientWords.some(iWord => 
+            expiringWords.some(eWord => 
+              (iWord.length > 3 && eWord.length > 3) && 
+              (iWord.includes(eWord) || eWord.includes(iWord))
+            )
+          )
+        })
+        
+        if (match) {
+          console.log(`✅ Match found: "${ingredientName}" matches expiring ingredients`)
+        }
+        
+        return match
       })
+      
+      if (hasMatchingIngredient) {
+        console.log(`🍽️ Recipe "${recipe.name}" matches expiring ingredients`)
+      }
+      
+      return hasMatchingIngredient
     }).slice(0, 3) // Limit to top 3 recommendations
+    
+    console.log('📈 Final recommended recipes count:', recommendedRecipes.length)
+    console.log('📈 Recommended recipe names:', recommendedRecipes.map(r => r.name))
     
     return recommendedRecipes
   }
@@ -443,6 +503,27 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
     const today = new Date()
     setCurrentDate(today)
     setSelectedDate(today)
+  }
+
+  const addExpiredItemsToGroceries = (expiredItems: PantryItem[]) => {
+    let addedCount = 0
+    
+    expiredItems.forEach(item => {
+      addGroceryItem({
+        name: item.name,
+        amount: item.amount,
+        unit: item.unit,
+        category: item.category
+      })
+      addedCount++
+    })
+
+    toast({
+      title: 'Added to grocery list',
+      description: `${addedCount} expired ${addedCount === 1 ? 'item' : 'items'} added to your grocery list`,
+      status: 'success',
+      duration: 3000,
+    })
   }
 
   const days = getDaysInMonth(currentDate)
@@ -732,38 +813,51 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                   borderColor={dragOverSection === section.type ? section.color : 'transparent'}
                   transition="all 0.2s"
                 >
-                  <HStack spacing={3} mb={4}>
-                    {section.type === 'breakfast' ? (
-                      <BreakfastIcon w="5" h="5" />
-                    ) : section.type === 'lunch' ? (
-                      <LunchIcon w="5" h="5" />
-                    ) : section.type === 'dinner' ? (
-                      <DinnerIcon w="5" h="5" />
-                    ) : section.type === 'expired' ? (
-                      <Text fontSize="xl">❌</Text>
-                    ) : section.type === 'expiring' ? (
-                      <Text fontSize="xl">⚠️</Text>
-                    ) : section.type === 'recommended' ? (
-                      <Text fontSize="xl">💡</Text>
-                    ) : (
-                      <CalendarIcon w="5" h="5" />
+                  <HStack spacing={3} mb={4} justify="space-between" w="full">
+                    <HStack spacing={3}>
+                      {section.type === 'breakfast' ? (
+                        <BreakfastIcon w="5" h="5" />
+                      ) : section.type === 'lunch' ? (
+                        <LunchIcon w="5" h="5" />
+                      ) : section.type === 'dinner' ? (
+                        <DinnerIcon w="5" h="5" />
+                      ) : section.type === 'expired' ? (
+                        <Text fontSize="xl">❌</Text>
+                      ) : section.type === 'expiring' ? (
+                        <Text fontSize="xl">⚠️</Text>
+                      ) : section.type === 'recommended' ? (
+                        <Text fontSize="xl">💡</Text>
+                      ) : (
+                        <CalendarIcon w="5" h="5" />
+                      )}
+                      <Heading size="md" textTransform="capitalize">
+                        {section.name}
+                      </Heading>
+                      <Badge 
+                        colorScheme={
+                          section.type === 'expired' ? 'red' : 
+                          section.type === 'expiring' ? 'yellow' : 
+                          section.type === 'recommended' ? 'teal' : 'gray'
+                        } 
+                        size="sm"
+                      >
+                        {section.type === 'expired' || section.type === 'expiring' ? 
+                          `${(section as any).expiringItems.length} ${(section as any).expiringItems.length === 1 ? 'item' : 'items'}` :
+                          `${section.meals.length} ${section.meals.length === 1 ? 'recipe' : 'recipes'}`
+                        }
+                      </Badge>
+                    </HStack>
+                    {section.type === 'expired' && (section as any).expiringItems.length > 0 && (
+                      <Button
+                        size="sm"
+                        leftIcon={<GroceryIcon />}
+                        variant="outline"
+                        colorScheme="teal"
+                        onClick={() => addExpiredItemsToGroceries((section as any).expiringItems)}
+                      >
+                        Add to Groceries
+                      </Button>
                     )}
-                    <Heading size="md" textTransform="capitalize">
-                      {section.name}
-                    </Heading>
-                    <Badge 
-                      colorScheme={
-                        section.type === 'expired' ? 'red' : 
-                        section.type === 'expiring' ? 'yellow' : 
-                        section.type === 'recommended' ? 'teal' : 'gray'
-                      } 
-                      size="sm"
-                    >
-                      {section.type === 'expired' || section.type === 'expiring' ? 
-                        `${(section as any).expiringItems.length} ${(section as any).expiringItems.length === 1 ? 'item' : 'items'}` :
-                        `${section.meals.length} ${section.meals.length === 1 ? 'recipe' : 'recipes'}`
-                      }
-                    </Badge>
                   </HStack>
 
                   {section.type === 'expired' || section.type === 'expiring' ? (
@@ -884,7 +978,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                                   size="sm"
                                   variant="ghost"
                                   colorScheme="teal"
-                                  onClick={() => onRecipeSelect(meal.recipeId)}
+                                  onClick={() => onRecipeSelect('recipeId' in meal ? meal.recipeId : meal.id)}
                                 />
                                 <IconButton
                                   aria-label="Groceries"

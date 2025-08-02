@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: recipe-planner
+  labels:
+    app: recipe-planner
+    environment: production

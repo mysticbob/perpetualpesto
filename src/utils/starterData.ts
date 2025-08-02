@@ -49,6 +49,16 @@ export const generateSamplePantryData = () => {
       expirationDate: addDays(now, 21)
     },
     {
+      id: 'pantry-3b',
+      name: 'Butter',
+      amount: '2',
+      unit: 'sticks',
+      location: 'refrigerator',
+      category: 'dairy',
+      addedDate: twoDaysAgo.toISOString(),
+      expirationDate: addDays(now, 30)
+    },
+    {
       id: 'pantry-4',
       name: 'Carrots',
       amount: '2',
@@ -179,6 +189,16 @@ export const generateSamplePantryData = () => {
       category: 'spices',
       addedDate: oneWeekAgo.toISOString(),
       expirationDate: addDays(now, 1095)
+    },
+    {
+      id: 'pantry-15b',
+      name: 'Anchovies',
+      amount: '1',
+      unit: 'tin',
+      location: 'pantry',
+      category: 'canned',
+      addedDate: oneWeekAgo.toISOString(),
+      expirationDate: addDays(now, 730)
     },
     {
       id: 'pantry-16',

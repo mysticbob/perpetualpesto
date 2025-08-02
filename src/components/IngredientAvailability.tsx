@@ -31,9 +31,18 @@ export default function IngredientAvailability({
     return getItemAvailability(ingredientName, neededAmount, neededUnit)
   }, [getItemAvailability, ingredientName, neededAmount, neededUnit, pantryData])
   
-  // Determine the status of the ingredient (priority order: not available > expired > expiring > fresh)
+  // Determine the status of the ingredient (priority order: not available > substitution > expired > expiring > fresh)
   const ingredientStatus = React.useMemo(() => {
     if (!availability.available) {
+      // Check if there's a substitution available
+      if (availability.substitution?.available) {
+        return { 
+          type: 'substitution' as const, 
+          color: 'purple.500', 
+          icon: CheckIcon, 
+          tooltip: `Could substitute "${availability.substitution.originalName}" with "${availability.substitution.suggestedName}"` 
+        }
+      }
       return { type: 'unavailable' as const, color: 'red.500', icon: CloseIcon, tooltip: `"${ingredientName}" is not in your pantry` }
     }
     
@@ -73,6 +82,7 @@ export default function IngredientAvailability({
   }, [availability, preferences.expirationWarningDays, ingredientName])
   
   console.log(`🎯 Availability check for "${ingredientName}":`, availability, 'Status:', ingredientStatus)
+  console.log(`📦 Item category: ${availability.item?.category || 'no category'}`)
 
   // Create tooltip content based on availability
   const tooltipContent = availability.available ? (
@@ -132,6 +142,47 @@ export default function IngredientAvailability({
       {availability.item?.category && (
         <Badge size="xs" colorScheme="blue" mt={1}>
           {availability.item.category}
+        </Badge>
+      )}
+    </VStack>
+  ) : availability.substitution?.available ? (
+    <VStack spacing={2} align="start" p={2}>
+      <Text fontSize="sm" fontWeight="bold" color="purple.300">
+        🔄 Substitution Available
+      </Text>
+      
+      <VStack spacing={1} align="start">
+        <HStack spacing={2}>
+          <Text fontSize="xs" color="gray.300">
+            Recipe calls for:
+          </Text>
+          <Text fontSize="xs" fontWeight="bold">
+            {availability.substitution.originalName}
+          </Text>
+        </HStack>
+        
+        <HStack spacing={2}>
+          <Text fontSize="xs" color="gray.300">
+            You have:
+          </Text>
+          <Text fontSize="xs" fontWeight="bold" color="purple.300">
+            {availability.substitution.suggestedName}
+          </Text>
+        </HStack>
+        
+        <HStack spacing={2}>
+          <Text fontSize="xs" color="gray.300">
+            Location:
+          </Text>
+          <Text fontSize="xs" fontWeight="bold">
+            📍 {pantryData.find(loc => loc.id === availability.substitution?.item.location)?.name || availability.substitution?.item.location}
+          </Text>
+        </HStack>
+      </VStack>
+      
+      {availability.substitution.item.category && (
+        <Badge size="xs" colorScheme="purple" mt={1}>
+          {availability.substitution.item.category}
         </Badge>
       )}
     </VStack>

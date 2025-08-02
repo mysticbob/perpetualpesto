@@ -98,11 +98,16 @@ function extractFromJsonLd($: cheerio.CheerioAPI): ExtractedRecipe | null {
             totalTime: parseTime(item.totalTime),
             servings: parseInt(item.recipeYield) || undefined,
             imageUrl,
-            ingredients: (item.recipeIngredient || []).map((ing: string) => ({
-              name: ing,
-              amount: extractAmount(ing),
-              unit: extractUnit(ing)
-            })),
+            ingredients: (item.recipeIngredient || []).map((ing: string) => {
+              const amount = extractAmount(ing)
+              const unit = extractUnit(ing)
+              const name = cleanIngredientName(ing, amount, unit)
+              return {
+                name,
+                amount,
+                unit
+              }
+            }),
             instructions: (item.recipeInstructions || []).map((inst: any) => ({
               step: typeof inst === 'string' ? inst : inst.text || inst.name || ''
             }))
@@ -388,6 +393,28 @@ function extractUnit(text: string): string | undefined {
   const units = ['cup', 'cups', 'tbsp', 'tsp', 'oz', 'lb', 'g', 'kg', 'ml', 'l', 'clove', 'cloves']
   const match = text.match(new RegExp(`\\b(${units.join('|')})s?\\b`, 'i'))
   return match ? match[1] : undefined
+}
+
+function cleanIngredientName(text: string, amount?: string, unit?: string): string {
+  let cleaned = text.trim()
+  
+  // Remove the amount and unit from the beginning of the string
+  if (amount) {
+    // Create regex to match the amount at the start
+    const amountRegex = new RegExp(`^\\s*${amount.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`, 'i')
+    cleaned = cleaned.replace(amountRegex, '')
+  }
+  
+  if (unit) {
+    // Create regex to match the unit after removing amount
+    const unitRegex = new RegExp(`^\\s*${unit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}s?\\s*`, 'i')
+    cleaned = cleaned.replace(unitRegex, '')
+  }
+  
+  // Clean up any remaining whitespace and common cooking terms
+  cleaned = cleaned.replace(/^[\s,]+|[\s,]+$/g, '') // Remove leading/trailing spaces and commas
+  
+  return cleaned || text // Return original if cleaning resulted in empty string
 }
 
 export default app

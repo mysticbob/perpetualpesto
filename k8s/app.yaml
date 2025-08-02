@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recipe-planner-app
+  namespace: recipe-planner
+  labels:
+    app: recipe-planner-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: recipe-planner-app
+  template:
+    metadata:
+      labels:
+        app: recipe-planner-app
+    spec:
+      containers:
+      - name: recipe-planner
+        image: recipe-planner:latest  # Replace with your actual image
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: recipe-planner-config
+              key: NODE_ENV
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres:5432/$(POSTGRES_DB)"
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: recipe-planner-config
+              key: POSTGRES_USER
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: recipe-planner-config
+              key: POSTGRES_DB
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: recipe-planner-secrets
+              key: POSTGRES_PASSWORD
+        - name: FIREBASE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: recipe-planner-secrets
+              key: FIREBASE_API_KEY
+        - name: FIREBASE_AUTH_DOMAIN
+          valueFrom:
+            secretKeyRef:
+              name: recipe-planner-secrets
+              key: FIREBASE_AUTH_DOMAIN
+        - name: FIREBASE_PROJECT_ID
+          valueFrom:
+            secretKeyRef:
+              name: recipe-planner-secrets
+              key: FIREBASE_PROJECT_ID
+        ports:
+        - containerPort: 3000
+          name: http
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recipe-planner-app
+  namespace: recipe-planner
+  labels:
+    app: recipe-planner-app
+spec:
+  ports:
+  - port: 80
+    targetPort: 3000
+    name: http
+  selector:
+    app: recipe-planner-app
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: recipe-planner-ingress
+  namespace: recipe-planner
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - your-domain.com  # Replace with your actual domain
+    secretName: recipe-planner-tls
+  rules:
+  - host: your-domain.com  # Replace with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: recipe-planner-app
+            port:
+              number: 80

@@ -89,6 +89,41 @@ export default function PantryPage({ onBack }: PantryPageProps) {
   const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure()
   const { preferences } = usePreferences()
   
+  // Get units based on user's preference system
+  const getUnitsForSystem = (unitSystem: 'metric' | 'imperial') => {
+    const baseUnits = [
+      { value: 'pieces', label: 'pieces' },
+      { value: 'cans', label: 'cans' },
+      { value: 'bottles', label: 'bottles' },
+      { value: 'bulb', label: 'bulb' },
+      { value: 'cups', label: 'cups' } // cups are used in both systems
+    ]
+    
+    if (unitSystem === 'metric') {
+      return [
+        ...baseUnits,
+        { value: 'g', label: 'grams (g)' },
+        { value: 'kg', label: 'kilograms (kg)' },
+        { value: 'ml', label: 'milliliters (ml)' },
+        { value: 'l', label: 'liters (l)' }
+      ]
+    } else {
+      return [
+        ...baseUnits,
+        { value: 'oz', label: 'ounces (oz)' },
+        { value: 'lb', label: 'pounds (lb)' },
+        { value: 'fl oz', label: 'fluid ounces (fl oz)' },
+        { value: 'tsp', label: 'teaspoons (tsp)' },
+        { value: 'tbsp', label: 'tablespoons (tbsp)' },
+        { value: 'pt', label: 'pints (pt)' },
+        { value: 'qt', label: 'quarts (qt)' },
+        { value: 'gal', label: 'gallons (gal)' }
+      ]
+    }
+  }
+  
+  const availableUnits = getUnitsForSystem(preferences.unitSystem)
+  
   const recentlyDepleted = getRecentlyDepleted()
   const frequentlyUsed = getFrequentlyUsed()
   
@@ -890,17 +925,11 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                     value={newItem.unit || ''}
                     onChange={(e) => setNewItem(prev => ({ ...prev, unit: e.target.value }))}
                   >
-                    <option value="g">grams (g)</option>
-                    <option value="kg">kilograms (kg)</option>
-                    <option value="lb">pounds (lb)</option>
-                    <option value="oz">ounces (oz)</option>
-                    <option value="ml">milliliters (ml)</option>
-                    <option value="l">liters (l)</option>
-                    <option value="cups">cups</option>
-                    <option value="pieces">pieces</option>
-                    <option value="cans">cans</option>
-                    <option value="bottles">bottles</option>
-                    <option value="bulb">bulb</option>
+                    {availableUnits.map(unit => (
+                      <option key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </option>
+                    ))}
                   </Select>
                 </FormControl>
               </HStack>
@@ -1007,17 +1036,11 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                       value={editItem.unit || ''}
                       onChange={(e) => setEditItem(prev => prev ? { ...prev, unit: e.target.value } : null)}
                     >
-                      <option value="g">grams (g)</option>
-                      <option value="kg">kilograms (kg)</option>
-                      <option value="lb">pounds (lb)</option>
-                      <option value="oz">ounces (oz)</option>
-                      <option value="ml">milliliters (ml)</option>
-                      <option value="l">liters (l)</option>
-                      <option value="cups">cups</option>
-                      <option value="pieces">pieces</option>
-                      <option value="cans">cans</option>
-                      <option value="bottles">bottles</option>
-                      <option value="bulb">bulb</option>
+                      {availableUnits.map(unit => (
+                        <option key={unit.value} value={unit.value}>
+                          {unit.label}
+                        </option>
+                      ))}
                     </Select>
                   </FormControl>
                 </HStack>
