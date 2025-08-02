@@ -13,8 +13,10 @@ import { prisma } from './lib/db'
 const app = new Hono()
 
 app.use('*', cors({
-  origin: ['http://localhost:3000'],
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? '*'  // Allow all origins in production for Cloud Run
+    : ['http://localhost:3000'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
 
@@ -50,7 +52,7 @@ app.get('/health', async (c) => {
   }
 })
 
-const port = 3001
+const port = Number(process.env.PORT) || 3001
 console.log(`🚀 Server is running on port ${port}`)
 console.log(`📊 Health check: http://localhost:${port}/health`)
 
