@@ -27,6 +27,10 @@ import {
   InputGroup,
   InputLeftElement,
   Select,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
   List,
   ListItem,
   useToast,
@@ -36,6 +40,8 @@ import {
 import { useState, useEffect } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, AddIcon, CalendarIcon, EditIcon, DeleteIcon, SettingsIcon, SearchIcon, BreakfastIcon, LunchIcon, DinnerIcon } from './icons/CustomIcons'
 import { usePantry, PantryItem } from '../contexts/PantryContext'
+import { useAuth } from '../contexts/AuthContext'
+import { usePreferences } from '../contexts/PreferencesContext'
 
 interface MealPlan {
   id: string
@@ -87,6 +93,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
   const [availableRecipes, setAvailableRecipes] = useState<Recipe[]>([])
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const { currentUser } = useAuth()
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null)
   const [selectedMealType, setSelectedMealType] = useState<'breakfast' | 'lunch' | 'dinner' | ''>('')
   const [loadingRecipes, setLoadingRecipes] = useState(true)
@@ -94,6 +101,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
   const [dragOverSection, setDragOverSection] = useState<string | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { pantryData } = usePantry()
+  const { preferences } = usePreferences()
   const toast = useToast()
   
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([
@@ -170,9 +178,11 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
   // Fetch user's actual recipes from API
   useEffect(() => {
     const fetchRecipes = async () => {
+      if (!currentUser) return
+      
       setLoadingRecipes(true)
       try {
-        const response = await fetch('http://localhost:3001/api/recipes?limit=100')
+        const response = await fetch(`http://localhost:3001/api/recipes?limit=100&userId=${currentUser.uid}`)
         if (response.ok) {
           const data: PaginatedResponse = await response.json()
           setAvailableRecipes(data.recipes || [])
@@ -190,7 +200,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
     }
     
     fetchRecipes()
-  }, [])
+  }, [currentUser])
 
   // Filter recipes based on search query
   useEffect(() => {
@@ -232,10 +242,10 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
     const targetDate = new Date(date)
     targetDate.setHours(0, 0, 0, 0)
     
-    // Get date 3 days from the target date (future)
-    const threeDaysLater = new Date(targetDate)
-    threeDaysLater.setDate(threeDaysLater.getDate() + 3)
-    threeDaysLater.setHours(23, 59, 59, 999)
+    // Get date X days from the target date (future) - use configurable expiration warning days
+    const warningDaysLater = new Date(targetDate)
+    warningDaysLater.setDate(warningDaysLater.getDate() + preferences.expirationWarningDays)
+    warningDaysLater.setHours(23, 59, 59, 999)
     
     // Get date 7 days before the target date (to show already expired items)
     const sevenDaysEarlier = new Date(targetDate)
@@ -248,8 +258,8 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
       location.items.forEach(item => {
         if (item.expirationDate) {
           const expirationDate = new Date(item.expirationDate)
-          // Item expires within 3 days of the target date OR expired up to 7 days ago
-          if (expirationDate >= sevenDaysEarlier && expirationDate <= threeDaysLater) {
+          // Item expires within X days of the target date OR expired up to 7 days ago
+          if (expirationDate >= sevenDaysEarlier && expirationDate <= warningDaysLater) {
             expiringItems.push(item)
           }
         }
@@ -261,6 +271,37 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
       if (!a.expirationDate || !b.expirationDate) return 0
       return new Date(a.expirationDate).getTime() - new Date(b.expirationDate).getTime()
     })
+  }
+
+  const getRecommendedRecipes = (expiringItems: PantryItem[]): Recipe[] => {
+    if (expiringItems.length === 0 || !availableRecipes || availableRecipes.length === 0) return []
+    
+    // Get ingredient names from expiring items
+    const expiringIngredientNames = expiringItems.map(item => 
+      item.name.toLowerCase().trim()
+    )
+    
+    // Filter recipes that contain any of the expiring ingredients
+    const recommendedRecipes = availableRecipes.filter(recipe => {
+      // Check if recipe has ingredients array
+      if (!recipe || !recipe.ingredients || !Array.isArray(recipe.ingredients)) {
+        return false
+      }
+      
+      return recipe.ingredients.some(ingredient => {
+        // Check if ingredient has name property
+        if (!ingredient || !ingredient.name) {
+          return false
+        }
+        
+        const ingredientName = ingredient.name.toLowerCase().trim()
+        return expiringIngredientNames.some(expiringName => 
+          ingredientName.includes(expiringName) || expiringName.includes(ingredientName)
+        )
+      })
+    }).slice(0, 3) // Limit to top 3 recommendations
+    
+    return recommendedRecipes
   }
 
   const getMealsForDate = (date: Date) => {
@@ -465,6 +506,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
               })
               
               const isTodayDate = isToday(date)
+              const isSelectedDate = selectedDate && selectedDate.toDateString() === date.toDateString()
               
               return (
                 <Box 
@@ -472,9 +514,9 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                   w="full"
                   p={3}
                   borderRadius="md"
-                  bg={isTodayDate ? todayBg : 'transparent'}
+                  bg={isSelectedDate ? todayBg : 'transparent'}
                   border="1px solid"
-                  borderColor={isTodayDate ? todayBorder : 'transparent'}
+                  borderColor={isSelectedDate ? todayBorder : 'transparent'}
                   transition="all 0.2s"
                   cursor="pointer"
                   onClick={() => setSelectedDate(date)}
@@ -484,7 +526,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                       <Text 
                         fontSize="2xl" 
                         fontWeight="bold"
-                        color={selectedDate && selectedDate.toDateString() === date.toDateString() ? selectedBg : isTodayDate ? selectedBg : 'inherit'}
+                        color={isSelectedDate ? selectedBg : 'inherit'}
                       >
                         {date.getDate().toString().padStart(2, '0')}
                       </Text>
@@ -611,7 +653,7 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                 _hover={{ backgroundColor: '#2da89c' }}
                 onClick={onOpen}
               >
-                Add Recipe
+                Select Recipe
               </Button>
             </VStack>
 
@@ -637,6 +679,9 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                 return expirationDate >= today
               })
               
+              const allExpiringItems = [...expiredItems, ...aboutToExpireItems]
+              const recommendedRecipes = getRecommendedRecipes(allExpiringItems)
+
               const sections = [
                 ...(['breakfast', 'lunch', 'dinner'] as const).map(mealType => ({
                   type: mealType,
@@ -664,6 +709,12 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                   meals: [], // No meals, we'll handle items separately
                   expiringItems: aboutToExpireItems,
                   color: '#d69e2e'
+                }] : []),
+                ...(recommendedRecipes.length > 0 ? [{
+                  type: 'recommended' as const,
+                  name: 'recommended recipes',
+                  meals: recommendedRecipes,
+                  color: '#38BDAF'
                 }] : [])
               ]
 
@@ -692,6 +743,8 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                       <Text fontSize="xl">❌</Text>
                     ) : section.type === 'expiring' ? (
                       <Text fontSize="xl">⚠️</Text>
+                    ) : section.type === 'recommended' ? (
+                      <Text fontSize="xl">💡</Text>
                     ) : (
                       <CalendarIcon w="5" h="5" />
                     )}
@@ -701,7 +754,8 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                     <Badge 
                       colorScheme={
                         section.type === 'expired' ? 'red' : 
-                        section.type === 'expiring' ? 'yellow' : 'gray'
+                        section.type === 'expiring' ? 'yellow' : 
+                        section.type === 'recommended' ? 'teal' : 'gray'
                       } 
                       size="sm"
                     >
@@ -1003,16 +1057,60 @@ export default function CalendarView({ onRecipeSelect }: CalendarViewProps) {
                 {/* Meal Type Selection */}
                 <VStack align="start" spacing={2} w="full">
                   <Text fontWeight="medium">Choose meal type (optional):</Text>
-                  <Select
-                    placeholder="Select meal type or leave blank for 'Today'"
-                    value={selectedMealType}
-                    onChange={(e) => setSelectedMealType(e.target.value as any)}
-                    focusBorderColor={selectedBg}
-                  >
-                    <option value="breakfast">☕ Breakfast</option>
-                    <option value="lunch">🍽️ Lunch</option>
-                    <option value="dinner">🍴 Dinner</option>
-                  </Select>
+                  <Menu>
+                    <MenuButton
+                      as={Button}
+                      variant="outline"
+                      w="full"
+                      textAlign="left"
+                      justifyContent="flex-start"
+                      fontWeight="normal"
+                      color={selectedMealType ? 'inherit' : 'gray.500'}
+                    >
+                      {selectedMealType === 'breakfast' && (
+                        <HStack>
+                          <BreakfastIcon w="4" h="4" />
+                          <Text>Breakfast</Text>
+                        </HStack>
+                      )}
+                      {selectedMealType === 'lunch' && (
+                        <HStack>
+                          <LunchIcon w="4" h="4" />
+                          <Text>Lunch</Text>
+                        </HStack>
+                      )}
+                      {selectedMealType === 'dinner' && (
+                        <HStack>
+                          <DinnerIcon w="4" h="4" />
+                          <Text>Dinner</Text>
+                        </HStack>
+                      )}
+                      {!selectedMealType && "Select meal type or leave blank for 'Today'"}
+                    </MenuButton>
+                    <MenuList>
+                      <MenuItem onClick={() => setSelectedMealType('')}>
+                        <Text>Leave blank for 'Today'</Text>
+                      </MenuItem>
+                      <MenuItem onClick={() => setSelectedMealType('breakfast')}>
+                        <HStack>
+                          <BreakfastIcon w="4" h="4" />
+                          <Text>Breakfast</Text>
+                        </HStack>
+                      </MenuItem>
+                      <MenuItem onClick={() => setSelectedMealType('lunch')}>
+                        <HStack>
+                          <LunchIcon w="4" h="4" />
+                          <Text>Lunch</Text>
+                        </HStack>
+                      </MenuItem>
+                      <MenuItem onClick={() => setSelectedMealType('dinner')}>
+                        <HStack>
+                          <DinnerIcon w="4" h="4" />
+                          <Text>Dinner</Text>
+                        </HStack>
+                      </MenuItem>
+                    </MenuList>
+                  </Menu>
                   <Text fontSize="xs" color={mutedColor}>
                     💡 Leave blank to add to a general "Today" section
                   </Text>

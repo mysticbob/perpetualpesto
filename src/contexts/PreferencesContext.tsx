@@ -7,6 +7,7 @@ export type ThemeMode = 'automatic' | 'light' | 'dark'
 interface Preferences {
   unitSystem: UnitSystem
   themeMode: ThemeMode
+  expirationWarningDays: number
 }
 
 interface PreferencesContextType {
@@ -14,11 +15,13 @@ interface PreferencesContextType {
   updatePreferences: (updates: Partial<Preferences>) => void
   setUnitSystem: (system: UnitSystem) => void
   setThemeMode: (mode: ThemeMode) => void
+  setExpirationWarningDays: (days: number) => void
 }
 
 const defaultPreferences: Preferences = {
   unitSystem: 'metric',
-  themeMode: 'automatic'
+  themeMode: 'automatic',
+  expirationWarningDays: 3
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined)
@@ -100,12 +103,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     updatePreferences({ themeMode: mode })
   }
 
+  const setExpirationWarningDays = (days: number) => {
+    updatePreferences({ expirationWarningDays: days })
+  }
+
   return (
     <PreferencesContext.Provider value={{
       preferences,
       updatePreferences,
       setUnitSystem,
-      setThemeMode
+      setThemeMode,
+      setExpirationWarningDays
     }}>
       {children}
     </PreferencesContext.Provider>

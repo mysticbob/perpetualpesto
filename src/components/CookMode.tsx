@@ -22,15 +22,18 @@ import {
   ModalCloseButton,
   useDisclosure,
   Checkbox,
-  useToast
+  useToast,
+  Divider
 } from '@chakra-ui/react'
 import { useState } from 'react'
 import { CloseIcon, ChevronLeftIcon, ChevronRightIcon, TimeIcon, CheckIcon } from './icons/CustomIcons'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { usePantry } from '../contexts/PantryContext'
+import { useAuth } from '../contexts/AuthContext'
 import { formatIngredientAmount } from '../utils/units'
 import IngredientAvailability from './IngredientAvailability'
 import ClickableTime from './ClickableTime'
+import StarRating, { RatingPrompt } from './StarRating'
 
 interface Recipe {
   id: string
@@ -57,9 +60,13 @@ export default function CookMode({ recipe, onClose }: CookModeProps) {
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set())
   const [selectedIngredientsToRemove, setSelectedIngredientsToRemove] = useState<Set<string>>(new Set())
   const [isFinished, setIsFinished] = useState(false)
+  const [showRating, setShowRating] = useState(false)
+  const [hasRated, setHasRated] = useState(false)
+  const [modalRating, setModalRating] = useState<number>(0)
   const { isOpen, onOpen, onClose: onModalClose } = useDisclosure()
   const { preferences } = usePreferences()
   const { pantryData, setPantryData, addDepletedItem } = usePantry()
+  const { currentUser } = useAuth()
   const toast = useToast()
   
   const bgColor = useColorModeValue('white', 'gray.900')
@@ -109,7 +116,124 @@ export default function CookMode({ recipe, onClose }: CookModeProps) {
     setSelectedIngredientsToRemove(newSelected)
   }
 
-  const removeIngredientsFromPantry = () => {
+  // Handle live rating updates
+  const handleLiveRatingChange = async (newRating: number) => {
+    setModalRating(newRating)
+    
+    // Submit rating immediately when changed
+    if (currentUser) {
+      try {
+        await fetch('http://localhost:3001/api/ratings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: currentUser.uid,
+            recipeId: recipe.id,
+            rating: newRating
+          })
+        })
+        setHasRated(true)
+      } catch (error) {
+        console.error('Error submitting live rating:', error)
+      }
+    }
+  }
+
+  // Handle "Update Pantry" button
+  const handleUpdatePantry = async () => {
+    let removedCount = 0
+    let updatedCount = 0
+    
+    recipe.ingredients.forEach(ingredient => {
+      if (selectedIngredientsToRemove.has(ingredient.id)) {
+        setPantryData(prevData => {
+          let itemProcessed = false
+          const newData = prevData.map(location => {
+            const updatedItems = location.items.map(item => {
+              // More flexible matching - check if ingredient name is contained in item name or vice versa
+              const ingredientName = ingredient.name.toLowerCase().trim()
+              const itemName = item.name.toLowerCase().trim()
+              
+              if (itemName.includes(ingredientName) || ingredientName.includes(itemName)) {
+                if (itemProcessed) return item // Only process the first match
+                itemProcessed = true
+                
+                // Handle 'cans' or 'pieces' units specially
+                if (ingredient.unit && (ingredient.unit.toLowerCase().includes('can') || ingredient.unit.toLowerCase().includes('piece'))) {
+                  const currentAmount = parseFloat(item.amount) || 0
+                  const usedAmount = parseFloat(ingredient.amount || '1') || 1
+                  const newAmount = Math.max(0, currentAmount - usedAmount)
+                  
+                  if (newAmount > 0) {
+                    updatedCount++
+                    return { ...item, amount: newAmount.toString() }
+                  } else {
+                    // Track completely depleted item
+                    addDepletedItem(item)
+                    removedCount++
+                    return null // Mark for removal
+                  }
+                } else {
+                  // For weight/volume units, do basic conversion if units don't match
+                  const currentAmount = parseFloat(item.amount) || 0
+                  let usedAmount = parseFloat(ingredient.amount || '0') || 0
+                  
+                  // Basic oz to grams conversion if needed
+                  if (ingredient.unit?.toLowerCase().includes('oz') && item.unit?.toLowerCase().includes('g')) {
+                    usedAmount = usedAmount * 28.35 // Convert oz to grams
+                  }
+                  // Basic grams to oz conversion if needed  
+                  else if (ingredient.unit?.toLowerCase().includes('g') && item.unit?.toLowerCase().includes('oz')) {
+                    usedAmount = usedAmount / 28.35 // Convert grams to oz
+                  }
+                  
+                  const newAmount = Math.max(0, currentAmount - usedAmount)
+                  
+                  if (newAmount > 0) {
+                    updatedCount++
+                    return { ...item, amount: newAmount.toString() }
+                  } else {
+                    // Track completely depleted item
+                    addDepletedItem(item)
+                    removedCount++
+                    return null // Mark for removal
+                  }
+                }
+              }
+              return item
+            }).filter(item => item !== null) // Remove null items
+            
+            return {
+              ...location,
+              items: updatedItems
+            }
+          })
+          
+          return newData
+        })
+      }
+    })
+
+    toast({
+      title: 'Pantry updated!',
+      description: `${removedCount} items removed, ${updatedCount} items updated`,
+      status: 'success',
+      duration: 3000,
+    })
+
+    onModalClose()
+    onClose() // Return to recipe view
+  }
+
+  // Handle "Done" button
+  const handleDone = async () => {
+    onModalClose()
+    onClose() // Return to recipe view
+  }
+
+  const removeIngredientsFromPantry = async () => {
     let removedCount = 0
     let updatedCount = 0
     
@@ -191,7 +315,68 @@ export default function CookMode({ recipe, onClose }: CookModeProps) {
       duration: 3000,
     })
 
+    // Handle rating from modal if provided
+    if (modalRating > 0) {
+      await handleRatingSubmit(modalRating)
+    }
+
     onModalClose()
+    
+    // Always go back to recipe main view after completing cooking
+    onClose() // Close cook mode and return to recipe view
+  }
+
+  const handleRatingSubmit = async (rating: number, review?: string) => {
+    if (!currentUser) {
+      toast({
+        title: 'Error',
+        description: 'Please log in to rate recipes.',
+        status: 'error',
+        duration: 3000,
+      })
+      return
+    }
+
+    try {
+      const response = await fetch('http://localhost:3001/api/ratings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          recipeId: recipe.id,
+          rating,
+          review
+        })
+      })
+
+      if (response.ok) {
+        toast({
+          title: 'Rating submitted!',
+          description: `Thank you for rating "${recipe.name}"`,
+          status: 'success',
+          duration: 3000,
+        })
+        setHasRated(true)
+        setShowRating(false)
+        onClose() // Close cook mode
+      } else {
+        throw new Error('Failed to submit rating')
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to submit rating. Please try again.',
+        status: 'error',
+        duration: 3000,
+      })
+    }
+  }
+
+  const skipRating = () => {
+    setShowRating(false)
     onClose() // Close cook mode
   }
 
@@ -400,20 +585,80 @@ export default function CookMode({ recipe, onClose }: CookModeProps) {
               <Text fontSize="xs" color={mutedColor} fontStyle="italic">
                 💡 Tip: Uncheck items you didn't use completely or want to keep in your pantry
               </Text>
+
+              {/* Rating Section */}
+              <Divider />
+              <VStack spacing={3} align="center" w="full">
+                <Text fontSize="md" fontWeight="medium" color="gray.800">
+                  How was "{recipe.name}"?
+                </Text>
+                <StarRating
+                  rating={modalRating}
+                  size="lg"
+                  onRatingChange={handleLiveRatingChange}
+                  colorScheme="yellow"
+                />
+                {modalRating > 0 && (
+                  <Text fontSize="sm" color={mutedColor}>
+                    {modalRating === 1 && "Poor"}
+                    {modalRating === 2 && "Fair"}
+                    {modalRating === 3 && "Good"}
+                    {modalRating === 4 && "Very Good"}
+                    {modalRating === 5 && "Excellent"}
+                  </Text>
+                )}
+              </VStack>
             </VStack>
           </ModalBody>
 
           <ModalFooter>
-            <Button variant="ghost" mr={3} onClick={onModalClose}>
-              Skip
+            <Button 
+              variant="outline"
+              mr={3}
+              onClick={handleUpdatePantry}
+              isDisabled={selectedIngredientsToRemove.size === 0}
+            >
+              Update Pantry ({selectedIngredientsToRemove.size} items)
             </Button>
             <Button 
               style={{ backgroundColor: brandColor, color: 'white' }}
               _hover={{ backgroundColor: '#2da89c' }}
-              onClick={removeIngredientsFromPantry}
-              isDisabled={selectedIngredientsToRemove.size === 0}
+              onClick={handleDone}
             >
-              Update Pantry ({selectedIngredientsToRemove.size} items)
+              Done
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Rating Modal */}
+      <Modal isOpen={showRating} onClose={skipRating} closeOnOverlayClick={false}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>
+            <VStack align="start" spacing={2}>
+              <HStack spacing={3}>
+                <CheckIcon color={brandColor} />
+                <Text>Recipe Complete!</Text>
+              </HStack>
+              <Text fontSize="sm" fontWeight="normal" color={mutedColor}>
+                How was "{recipe.name}"?
+              </Text>
+            </VStack>
+          </ModalHeader>
+          <ModalCloseButton />
+          
+          <ModalBody>
+            <RatingPrompt
+              onSubmit={handleRatingSubmit}
+              title="Rate this recipe"
+              subtitle="Help others discover great recipes"
+            />
+          </ModalBody>
+
+          <ModalFooter>
+            <Button variant="ghost" onClick={skipRating}>
+              Skip for now
             </Button>
           </ModalFooter>
         </ModalContent>

@@ -26,14 +26,16 @@ import {
   Grid,
   GridItem
 } from '@chakra-ui/react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { CloseIcon, TimeIcon, EditIcon } from './icons/CustomIcons'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { useGrocery } from '../contexts/GroceryContext'
 import { usePantry } from '../contexts/PantryContext'
+import { useAuth } from '../contexts/AuthContext'
 import { formatIngredientAmount } from '../utils/units'
 import IngredientAvailability from './IngredientAvailability'
 import GroceryOptionsDialog from './GroceryOptionsDialog'
+import { CompactStarRating } from './StarRating'
 
 interface Recipe {
   id: string
@@ -66,6 +68,8 @@ interface RecipeSummaryProps {
 
 export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroceries }: RecipeSummaryProps) {
   const [servings, setServings] = useState(recipe.servings || 4)
+  const [ratingStats, setRatingStats] = useState<{averageRating: number, totalRatings: number} | null>(null)
+  const [userRating, setUserRating] = useState<number>(0)
   const { isOpen, onOpen, onClose: closeModal } = useDisclosure()
   const { 
     isOpen: isGroceryDialogOpen, 
@@ -75,11 +79,81 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
   const { preferences } = usePreferences()
   const { addGroceryItem } = useGrocery()
   const { getItemAvailability } = usePantry()
+  const { currentUser } = useAuth()
   
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
   const mutedColor = useColorModeValue('gray.500', 'gray.400')
   const cardBg = useColorModeValue('gray.50', 'gray.700')
+
+  // Fetch recipe rating statistics
+  useEffect(() => {
+    const fetchRatingStats = async () => {
+      try {
+        const response = await fetch(`http://localhost:3001/api/ratings/recipe/${recipe.id}/stats`)
+        if (response.ok) {
+          const stats = await response.json()
+          setRatingStats(stats)
+        }
+      } catch (error) {
+        console.error('Error fetching rating stats:', error)
+      }
+    }
+
+    fetchRatingStats()
+  }, [recipe.id])
+
+  // Fetch user's current rating for this recipe
+  useEffect(() => {
+    const fetchUserRating = async () => {
+      if (!currentUser) return
+      
+      try {
+        const response = await fetch(`http://localhost:3001/api/ratings/user/${currentUser.uid}/recipe/${recipe.id}`)
+        if (response.ok) {
+          const userRatingData = await response.json()
+          if (userRatingData) {
+            setUserRating(userRatingData.rating)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user rating:', error)
+      }
+    }
+
+    fetchUserRating()
+  }, [recipe.id, currentUser])
+
+  // Handle rating change
+  const handleRatingChange = async (newRating: number) => {
+    if (!currentUser) return
+
+    try {
+      const response = await fetch('http://localhost:3001/api/ratings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          recipeId: recipe.id,
+          rating: newRating
+        })
+      })
+
+      if (response.ok) {
+        setUserRating(newRating)
+        // Refresh rating stats
+        const statsResponse = await fetch(`http://localhost:3001/api/ratings/recipe/${recipe.id}/stats`)
+        if (statsResponse.ok) {
+          const stats = await statsResponse.json()
+          setRatingStats(stats)
+        }
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error)
+    }
+  }
 
   // Calculate scaling factor for ingredients
   const scalingFactor = servings / (recipe.servings || 4)
@@ -140,6 +214,16 @@ export default function RecipeSummary({ recipe, onClose, onStartCooking, onGroce
               />
               <Heading size="xl">{recipe.name}</Heading>
             </HStack>
+            
+            {/* Rating Display */}
+            <Box>
+              <CompactStarRating 
+                rating={userRating || ratingStats?.averageRating || 0} 
+                size="md"
+                isInteractive={true}
+                onRatingChange={handleRatingChange}
+              />
+            </Box>
             
             <HStack spacing={4} wrap="wrap">
               <HStack spacing={1}>

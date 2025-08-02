@@ -20,9 +20,11 @@ import {
 import { useState, useEffect, useRef } from 'react'
 import { CloseIcon, TimeIcon, CalendarIcon, EditIcon } from './icons/CustomIcons'
 import { usePreferences } from '../contexts/PreferencesContext'
+import { useAuth } from '../contexts/AuthContext'
 import { formatIngredientAmount } from '../utils/units'
 import IngredientAvailability from './IngredientAvailability'
 import GroceryOptionsDialog from './GroceryOptionsDialog'
+import { CompactStarRating } from './StarRating'
 
 interface Recipe {
   id: string
@@ -56,6 +58,8 @@ interface RecipeViewProps {
 export default function RecipeView({ recipe, onClose, onStartCooking }: RecipeViewProps) {
   const [checkedIngredients, setCheckedIngredients] = useState<Set<string>>(new Set())
   const [activeStep, setActiveStep] = useState<number>(0)
+  const [ratingStats, setRatingStats] = useState<{averageRating: number, totalRatings: number} | null>(null)
+  const [userRating, setUserRating] = useState<number>(0)
   const instructionsRef = useRef<HTMLDivElement>(null)
   const { 
     isOpen: isGroceryDialogOpen, 
@@ -63,12 +67,82 @@ export default function RecipeView({ recipe, onClose, onStartCooking }: RecipeVi
     onClose: onCloseGroceryDialog 
   } = useDisclosure()
   const { preferences } = usePreferences()
+  const { currentUser } = useAuth()
   
   const bgColor = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
   const mutedColor = useColorModeValue('gray.500', 'gray.400')
   const activeStepBg = useColorModeValue('blue.50', 'blue.900')
   const activeStepBorder = useColorModeValue('blue.200', 'blue.600')
+
+  // Fetch recipe rating statistics
+  useEffect(() => {
+    const fetchRatingStats = async () => {
+      try {
+        const response = await fetch(`http://localhost:3001/api/ratings/recipe/${recipe.id}/stats`)
+        if (response.ok) {
+          const stats = await response.json()
+          setRatingStats(stats)
+        }
+      } catch (error) {
+        console.error('Error fetching rating stats:', error)
+      }
+    }
+
+    fetchRatingStats()
+  }, [recipe.id])
+
+  // Fetch user's current rating for this recipe
+  useEffect(() => {
+    const fetchUserRating = async () => {
+      if (!currentUser) return
+      
+      try {
+        const response = await fetch(`http://localhost:3001/api/ratings/user/${currentUser.uid}/recipe/${recipe.id}`)
+        if (response.ok) {
+          const userRatingData = await response.json()
+          if (userRatingData) {
+            setUserRating(userRatingData.rating)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user rating:', error)
+      }
+    }
+
+    fetchUserRating()
+  }, [recipe.id, currentUser])
+
+  // Handle rating change
+  const handleRatingChange = async (newRating: number) => {
+    if (!currentUser) return
+
+    try {
+      const response = await fetch('http://localhost:3001/api/ratings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          recipeId: recipe.id,
+          rating: newRating
+        })
+      })
+
+      if (response.ok) {
+        setUserRating(newRating)
+        // Refresh rating stats
+        const statsResponse = await fetch(`http://localhost:3001/api/ratings/recipe/${recipe.id}/stats`)
+        if (statsResponse.ok) {
+          const stats = await statsResponse.json()
+          setRatingStats(stats)
+        }
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error)
+    }
+  }
 
   const toggleIngredient = (ingredientId: string) => {
     const newChecked = new Set(checkedIngredients)
@@ -125,7 +199,15 @@ export default function RecipeView({ recipe, onClose, onStartCooking }: RecipeVi
                 variant="ghost"
                 onClick={onClose}
               />
-              <Heading size="md">{recipe.name}</Heading>
+              <VStack align="start" spacing={1}>
+                <Heading size="md">{recipe.name}</Heading>
+                <CompactStarRating 
+                  rating={userRating || ratingStats?.averageRating || 0} 
+                  size="sm"
+                  isInteractive={true}
+                  onRatingChange={handleRatingChange}
+                />
+              </VStack>
             </HStack>
             
             {recipe.imageUrl && (

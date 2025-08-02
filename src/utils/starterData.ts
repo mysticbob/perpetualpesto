@@ -98,6 +98,16 @@ export const generateSamplePantryData = () => {
       addedDate: now.toISOString(),
       expirationDate: addDays(now, 4)
     },
+    {
+      id: 'pantry-21',
+      name: 'Salmon Fillets',
+      amount: '4',
+      unit: '6-oz pieces',
+      location: 'refrigerator',
+      category: 'meat',
+      addedDate: twoDaysAgo.toISOString(),
+      expirationDate: addDays(now, 2) // Expires in 2 days - should trigger with default 3-day warning
+    },
 
     // Pantry items
     {

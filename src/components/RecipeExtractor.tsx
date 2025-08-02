@@ -18,6 +18,7 @@ import {
 } from '@chakra-ui/react'
 import { useState } from 'react'
 import { usePreferences } from '../contexts/PreferencesContext'
+import { useAuth } from '../contexts/AuthContext'
 import { formatIngredientAmount } from '../utils/units'
 
 interface ExtractedRecipe {
@@ -45,6 +46,7 @@ export default function RecipeExtractor() {
   const [recipe, setRecipe] = useState<ExtractedRecipe | null>(null)
   const toast = useToast()
   const { preferences } = usePreferences()
+  const { currentUser } = useAuth()
 
   const extractRecipe = async () => {
     if (!url.trim()) {
@@ -93,7 +95,7 @@ export default function RecipeExtractor() {
   }
 
   const saveRecipe = async () => {
-    if (!recipe) return
+    if (!recipe || !currentUser) return
 
     setSaving(true)
     try {
@@ -103,6 +105,7 @@ export default function RecipeExtractor() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          userId: currentUser.uid,
           name: recipe.name,
           description: recipe.description,
           prepTime: recipe.prepTime,
@@ -243,8 +246,9 @@ export default function RecipeExtractor() {
                 onClick={saveRecipe}
                 isLoading={saving}
                 loadingText="Saving..."
+                isDisabled={!currentUser}
               >
-                Save Recipe
+                {currentUser ? 'Save Recipe' : 'Please log in to save recipes'}
               </Button>
             </VStack>
           </CardBody>

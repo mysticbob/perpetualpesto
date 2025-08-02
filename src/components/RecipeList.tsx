@@ -27,6 +27,7 @@ import {
 } from '@chakra-ui/react'
 import { SearchIcon, ChevronLeftIcon, ChevronRightIcon, DeleteIcon } from './icons/CustomIcons'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 
 interface Recipe {
   id: string
@@ -67,6 +68,7 @@ export default function RecipeList({ onRecipeSelect, selectedRecipeId, onLoadSam
   const [searchTerm, setSearchTerm] = useState('')
   const [maxTime, setMaxTime] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const { currentUser } = useAuth()
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 12,
@@ -81,11 +83,14 @@ export default function RecipeList({ onRecipeSelect, selectedRecipeId, onLoadSam
 
   // Debounced search function
   const fetchRecipes = useCallback(async (page = 1, search = '', timeFilter = '') => {
+    if (!currentUser) return
+    
     setLoading(true)
     try {
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: '12'
+        limit: '12',
+        userId: currentUser.uid
       })
       
       if (search.trim()) {
@@ -107,7 +112,7 @@ export default function RecipeList({ onRecipeSelect, selectedRecipeId, onLoadSam
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [currentUser])
 
   // Initial load
   useEffect(() => {

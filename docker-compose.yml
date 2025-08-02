@@ -1,4 +1,13 @@
 services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://recipe_user:recipe_password@postgres:5432/recipe_planner
   postgres:
     image: postgres:15-alpine
     container_name: recipe-planner-db

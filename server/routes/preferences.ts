@@ -24,7 +24,8 @@ app.get('/', async (c) => {
       unitSystem: preferences.unitSystem,
       themeMode: preferences.themeMode,
       language: preferences.language,
-      timezone: preferences.timezone
+      timezone: preferences.timezone,
+      expirationWarningDays: preferences.expirationWarningDays
     })
   } catch (error) {
     console.error('Error fetching preferences:', error)
@@ -35,7 +36,7 @@ app.get('/', async (c) => {
 // Save user's preferences
 app.post('/', async (c) => {
   try {
-    const { userId, unitSystem, themeMode, language, timezone } = await c.req.json()
+    const { userId, unitSystem, themeMode, language, timezone, expirationWarningDays } = await c.req.json()
     
     if (!userId) {
       return c.json({ error: 'User ID is required' }, 400)
@@ -47,14 +48,16 @@ app.post('/', async (c) => {
         unitSystem: unitSystem || 'metric',
         themeMode: themeMode || 'system',
         language: language || 'en',
-        timezone: timezone || 'UTC'
+        timezone: timezone || 'UTC',
+        expirationWarningDays: expirationWarningDays || 3
       },
       create: {
         userId,
         unitSystem: unitSystem || 'metric',
         themeMode: themeMode || 'system',
         language: language || 'en',
-        timezone: timezone || 'UTC'
+        timezone: timezone || 'UTC',
+        expirationWarningDays: expirationWarningDays || 3
       }
     })
 

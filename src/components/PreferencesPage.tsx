@@ -15,7 +15,12 @@ import {
   Divider,
   FormControl,
   FormLabel,
-  useColorMode
+  useColorMode,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper
 } from '@chakra-ui/react'
 import { useEffect } from 'react'
 import { usePreferences } from '../contexts/PreferencesContext'
@@ -26,7 +31,7 @@ interface PreferencesPageProps {
 }
 
 export default function PreferencesPage({ onBack }: PreferencesPageProps) {
-  const { preferences, setUnitSystem, setThemeMode } = usePreferences()
+  const { preferences, setUnitSystem, setThemeMode, setExpirationWarningDays } = usePreferences()
   const { colorMode, setColorMode } = useColorMode()
   const bgColor = useColorModeValue('gray.50', 'gray.900')
   const cardBg = useColorModeValue('white', 'gray.800')
@@ -189,6 +194,63 @@ export default function PreferencesPage({ onBack }: PreferencesPageProps) {
             </CardBody>
           </Card>
 
+          {/* Expiration Warnings */}
+          <Card bg={cardBg} w="full">
+            <CardBody>
+              <VStack spacing={6} align="start">
+                <VStack spacing={2} align="start">
+                  <Heading size="md">Expiration Warnings</Heading>
+                  <Text color={mutedColor}>
+                    Configure when to warn about expiring ingredients
+                  </Text>
+                </VStack>
+
+                <FormControl>
+                  <FormLabel>Warning Days</FormLabel>
+                  <HStack spacing={4} align="center">
+                    <NumberInput
+                      value={preferences.expirationWarningDays}
+                      onChange={(_, value) => setExpirationWarningDays(value || 1)}
+                      min={1}
+                      max={14}
+                      maxW="100px"
+                    >
+                      <NumberInputField />
+                      <NumberInputStepper>
+                        <NumberIncrementStepper />
+                        <NumberDecrementStepper />
+                      </NumberInputStepper>
+                    </NumberInput>
+                    <Text fontSize="sm" color={mutedColor}>
+                      days before expiration
+                    </Text>
+                  </HStack>
+                </FormControl>
+
+                <VStack spacing={2} align="start">
+                  <Text fontSize="sm" color={mutedColor}>
+                    This setting controls when yellow hazard icons appear in recipe sidebars, 
+                    when items are highlighted in your pantry, and when expiration notifications 
+                    show up in the calendar.
+                  </Text>
+                  <Text fontSize="sm" color={mutedColor}>
+                    <Text as="span" fontWeight="medium">Example:</Text> With {preferences.expirationWarningDays} day{preferences.expirationWarningDays === 1 ? '' : 's'}, 
+                    an item expiring on Sunday will show warnings starting on {
+                      preferences.expirationWarningDays === 1 ? 'Saturday' : 
+                      preferences.expirationWarningDays === 2 ? 'Friday' :
+                      preferences.expirationWarningDays === 3 ? 'Thursday' :
+                      preferences.expirationWarningDays === 4 ? 'Wednesday' :
+                      preferences.expirationWarningDays === 5 ? 'Tuesday' :
+                      preferences.expirationWarningDays === 6 ? 'Monday' :
+                      preferences.expirationWarningDays === 7 ? 'Sunday (1 week before)' :
+                      `${preferences.expirationWarningDays} days before`
+                    }.
+                  </Text>
+                </VStack>
+              </VStack>
+            </CardBody>
+          </Card>
+
           {/* Current Settings Summary */}
           <Card bg={cardBg} w="full">
             <CardBody>
@@ -205,6 +267,12 @@ export default function PreferencesPage({ onBack }: PreferencesPageProps) {
                     <Text>Theme Mode:</Text>
                     <Badge colorScheme="blue">
                       {preferences.themeMode.charAt(0).toUpperCase() + preferences.themeMode.slice(1)}
+                    </Badge>
+                  </HStack>
+                  <HStack justify="space-between" w="full">
+                    <Text>Expiration Warning:</Text>
+                    <Badge colorScheme="yellow">
+                      {preferences.expirationWarningDays} day{preferences.expirationWarningDays === 1 ? '' : 's'}
                     </Badge>
                   </HStack>
                 </VStack>

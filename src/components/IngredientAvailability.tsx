@@ -7,7 +7,7 @@ import {
   HStack,
   Badge
 } from '@chakra-ui/react'
-import { CheckIcon, SnowflakeIcon, CloseIcon } from './icons/CustomIcons'
+import { CheckIcon, SnowflakeIcon, CloseIcon, HazardIcon } from './icons/CustomIcons'
 import { usePantry } from '../contexts/PantryContext'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { formatIngredientAmount } from '../utils/units'
@@ -31,41 +31,51 @@ export default function IngredientAvailability({
     return getItemAvailability(ingredientName, neededAmount, neededUnit)
   }, [getItemAvailability, ingredientName, neededAmount, neededUnit, pantryData])
   
-  console.log(`🎯 Availability check for "${ingredientName}":`, availability)
+  // Determine the status of the ingredient (priority order: not available > expired > expiring > fresh)
+  const ingredientStatus = React.useMemo(() => {
+    if (!availability.available) {
+      return { type: 'unavailable' as const, color: 'red.500', icon: CloseIcon, tooltip: `"${ingredientName}" is not in your pantry` }
+    }
+    
+    if (!availability.item?.expirationDate) {
+      // No expiration date - assume fresh
+      const isFrozen = availability.item?.location === 'freezer'
+      return { 
+        type: 'fresh' as const, 
+        color: isFrozen ? 'blue.500' : 'green.500', 
+        icon: isFrozen ? SnowflakeIcon : CheckIcon, 
+        tooltip: isFrozen ? 'This item is in your freezer' : 'Available in your pantry'
+      }
+    }
+    
+    const today = new Date()
+    const expirationDate = new Date(availability.item.expirationDate)
+    const warningZoneStart = new Date(today.getTime() + (preferences.expirationWarningDays * 24 * 60 * 60 * 1000))
+    
+    // Check if expired (past expiration date)
+    if (expirationDate < today) {
+      return { type: 'expired' as const, color: 'red.500', icon: HazardIcon, tooltip: 'This ingredient has expired' }
+    }
+    
+    // Check if in warning zone (expires within warning period)
+    if (expirationDate <= warningZoneStart) {
+      return { type: 'expiring' as const, color: 'yellow.500', icon: HazardIcon, tooltip: `This ingredient expires within ${preferences.expirationWarningDays} days` }
+    }
+    
+    // Fresh and good
+    const isFrozen = availability.item?.location === 'freezer'
+    return { 
+      type: 'fresh' as const, 
+      color: isFrozen ? 'blue.500' : 'green.500', 
+      icon: isFrozen ? SnowflakeIcon : CheckIcon, 
+      tooltip: isFrozen ? 'This item is in your freezer' : 'Available in your pantry'
+    }
+  }, [availability, preferences.expirationWarningDays, ingredientName])
   
-  // Show red X for items not in pantry
-  if (!availability.available) {
-    return (
-      <HStack spacing={1}>
-        <Tooltip
-          label={`"${ingredientName}" is not in your pantry`}
-          placement="top"
-          hasArrow
-          bg="red.800"
-          color="white"
-          fontSize="sm"
-          borderRadius="md"
-        >
-          <Box
-            w="20px"
-            h="20px"
-            bg="red.500"
-            borderRadius="full"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            cursor="help"
-            _hover={{ bg: 'red.600' }}
-            transition="background-color 0.2s"
-          >
-            <CloseIcon w="10px" h="10px" color="white" />
-          </Box>
-        </Tooltip>
-      </HStack>
-    )
-  }
+  console.log(`🎯 Availability check for "${ingredientName}":`, availability, 'Status:', ingredientStatus)
 
-  const tooltipContent = (
+  // Create tooltip content based on availability
+  const tooltipContent = availability.available ? (
     <VStack spacing={2} align="start" p={2}>
       <HStack spacing={2}>
         <Text fontSize="sm" fontWeight="bold">
@@ -125,9 +135,9 @@ export default function IngredientAvailability({
         </Badge>
       )}
     </VStack>
-  )
+  ) : ingredientStatus.tooltip
 
-  const isFrozen = availability.item?.location === 'freezer'
+  const IconComponent = ingredientStatus.icon
 
   return (
     <HStack spacing={1}>
@@ -135,7 +145,9 @@ export default function IngredientAvailability({
         label={tooltipContent}
         placement="top"
         hasArrow
-        bg="gray.800"
+        bg={ingredientStatus.type === 'unavailable' ? 'red.800' : 
+            ingredientStatus.type === 'expired' ? 'red.800' :
+            ingredientStatus.type === 'expiring' ? 'yellow.800' : 'gray.800'}
         color="white"
         fontSize="sm"
         borderRadius="md"
@@ -144,44 +156,22 @@ export default function IngredientAvailability({
         <Box
           w="20px"
           h="20px"
-          bg="green.500"
+          bg={ingredientStatus.color}
           borderRadius="full"
           display="flex"
           alignItems="center"
           justifyContent="center"
           cursor="help"
-          _hover={{ bg: 'green.600' }}
+          _hover={{ 
+            bg: ingredientStatus.color === 'red.500' ? 'red.600' :
+                ingredientStatus.color === 'yellow.500' ? 'yellow.600' :
+                ingredientStatus.color === 'blue.500' ? 'blue.600' : 'green.600'
+          }}
           transition="background-color 0.2s"
         >
-          <CheckIcon w="12px" h="12px" color="white" />
+          <IconComponent w="12px" h="12px" color="white" />
         </Box>
       </Tooltip>
-      
-      {isFrozen && (
-        <Tooltip
-          label="This item is in your freezer"
-          placement="top"
-          hasArrow
-          bg="blue.800"
-          color="white"
-          fontSize="sm"
-        >
-          <Box
-            w="20px"
-            h="20px"
-            bg="blue.500"
-            borderRadius="full"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-            cursor="help"
-            _hover={{ bg: 'blue.600' }}
-            transition="background-color 0.2s"
-          >
-            <SnowflakeIcon w="12px" h="12px" color="white" />
-          </Box>
-        </Tooltip>
-      )}
     </HStack>
   )
 }

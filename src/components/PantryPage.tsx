@@ -740,7 +740,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                             _hover={{ bg: useColorModeValue('gray.50', 'gray.800'), cursor: 'pointer' }}
                             bg={(() => {
                               if (item.expirationDate) {
-                                const expiration = getExpirationStatus(new Date(item.expirationDate))
+                                const expiration = getExpirationStatus(new Date(item.expirationDate), preferences.expirationWarningDays)
                                 if (expiration.status === 'expired') return '#d72c0d10' // Light red background
                                 if (expiration.status === 'expiring') return '#ffb50310' // Light yellow background
                               }
@@ -760,7 +760,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                                       let dotColor = '#008060' // Default green
                                       
                                       if (item.expirationDate) {
-                                        const expiration = getExpirationStatus(new Date(item.expirationDate))
+                                        const expiration = getExpirationStatus(new Date(item.expirationDate), preferences.expirationWarningDays)
                                         
                                         if (expiration.status === 'expired') {
                                           dotColor = '#d72c0d' // Red
@@ -785,7 +785,7 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                                     <Text 
                                       fontSize="xs" 
                                       color={(() => {
-                                        const expiration = getExpirationStatus(new Date(item.expirationDate))
+                                        const expiration = getExpirationStatus(new Date(item.expirationDate), preferences.expirationWarningDays)
                                         return expiration.color
                                       })()}
                                       fontWeight="medium"

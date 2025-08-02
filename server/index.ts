@@ -3,6 +3,7 @@ import { serve } from '@hono/node-server'
 import { cors } from 'hono/cors'
 import extractRoute from './routes/extract'
 import recipesRoute from './routes/recipes'
+import ratingsRoute from './routes/ratings'
 import pantryRoute from './routes/pantry'
 import groceryRoute from './routes/grocery'
 import preferencesRoute from './routes/preferences'
@@ -19,6 +20,7 @@ app.use('*', cors({
 
 app.route('/api/extract', extractRoute)
 app.route('/api/recipes', recipesRoute)
+app.route('/api/ratings', ratingsRoute)
 app.route('/api/pantry', pantryRoute)
 app.route('/api/grocery', groceryRoute)
 app.route('/api/preferences', preferencesRoute)

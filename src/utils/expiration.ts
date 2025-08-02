@@ -157,7 +157,7 @@ export function calculateExpirationDate(itemName: string, category?: string, loc
   return expirationDate
 }
 
-export function getExpirationStatus(expirationDate: Date): {
+export function getExpirationStatus(expirationDate: Date, expirationWarningDays: number = 2): {
   status: 'fresh' | 'expiring' | 'expired'
   daysUntilExpiration: number
   color: string
@@ -168,7 +168,7 @@ export function getExpirationStatus(expirationDate: Date): {
   
   if (daysUntilExpiration < 0) {
     return { status: 'expired', daysUntilExpiration, color: '#d72c0d' } // Ovie critical red
-  } else if (daysUntilExpiration <= 2) {
+  } else if (daysUntilExpiration <= expirationWarningDays) {
     return { status: 'expiring', daysUntilExpiration, color: '#ffb503' } // Ovie warning yellow
   } else {
     return { status: 'fresh', daysUntilExpiration, color: '#008060' } // Ovie success green
