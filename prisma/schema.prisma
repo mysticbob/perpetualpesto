@@ -25,6 +25,10 @@ model User {
   depletedItems  DepletedItem[]
   mealPlans      MealPlan[]
   userStores     UserStore[]
+  pantryShares   PantryShare[]
+  sharedByShares PantryShare[] @relation("SharedByUser")
+  pantryInvitations PantryInvitation[]
+  activityLogs   PantryActivityLog[]
 
   // Performance indexes
   @@index([email])
@@ -139,6 +143,9 @@ model PantryLocation {
 
   user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   items PantryItem[]
+  shares PantryShare[]
+  invitations PantryInvitation[]
+  activityLogs PantryActivityLog[]
 
   // Performance indexes
   @@index([userId, order]) // For ordered pantry locations
@@ -266,4 +273,83 @@ model UserStore {
   @@index([userId, isEnabled]) // For enabled stores
   @@index([userId, order]) // For ordered stores
   @@map("user_stores")
+}
+
+enum PantryPermission {
+  VIEW
+  EDIT
+  MANAGE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model PantryShare {
+  id               String           @id @default(cuid())
+  pantryLocationId String
+  userId           String
+  sharedByUserId   String
+  permission       PantryPermission @default(VIEW)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  expiresAt        DateTime?
+
+  pantryLocation PantryLocation @relation(fields: [pantryLocationId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sharedByUser   User           @relation("SharedByUser", fields: [sharedByUserId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@unique([pantryLocationId, userId])
+  @@index([userId])
+  @@index([pantryLocationId])
+  @@index([sharedByUserId])
+  @@map("pantry_shares")
+}
+
+model PantryInvitation {
+  id               String           @id @default(cuid())
+  pantryLocationId String
+  invitedEmail     String
+  invitedByUserId  String
+  permission       PantryPermission @default(VIEW)
+  invitationToken  String           @unique
+  status           InvitationStatus @default(PENDING)
+  message          String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  expiresAt        DateTime
+
+  pantryLocation PantryLocation @relation(fields: [pantryLocationId], references: [id], onDelete: Cascade)
+  invitedByUser  User           @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([invitedEmail])
+  @@index([pantryLocationId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("pantry_invitations")
+}
+
+model PantryActivityLog {
+  id               String   @id @default(cuid())
+  pantryLocationId String
+  userId           String
+  action           String
+  itemName         String?
+  itemId           String?
+  oldValue         String?
+  newValue         String?
+  createdAt        DateTime @default(now())
+
+  pantryLocation PantryLocation @relation(fields: [pantryLocationId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([pantryLocationId, createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("pantry_activity_logs")
 }

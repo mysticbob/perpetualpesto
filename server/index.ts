@@ -8,6 +8,7 @@ import pantryRoute from './routes/pantry'
 import groceryRoute from './routes/grocery'
 import preferencesRoute from './routes/preferences'
 import usersRoute from './routes/users'
+// import sharingRoute from './routes/sharing'
 import { prisma } from './lib/db'
 
 const app = new Hono()
@@ -27,6 +28,7 @@ app.route('/api/pantry', pantryRoute)
 app.route('/api/grocery', groceryRoute)
 app.route('/api/preferences', preferencesRoute)
 app.route('/api/users', usersRoute)
+// app.route('/api/sharing', sharingRoute)
 
 // Test endpoint
 app.get('/api/test', async (c) => {

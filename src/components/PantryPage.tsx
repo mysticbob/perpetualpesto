@@ -43,6 +43,9 @@ import { SearchIcon } from '@chakra-ui/icons'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { usePantry, PantryItem } from '../contexts/PantryContext'
 import { useGrocery } from '../contexts/GroceryContext'
+import { useAuth } from '../contexts/AuthContext'
+import PantrySharing from './PantrySharing'
+import ActivityFeed from './ActivityFeed'
 import { formatIngredientAmount } from '../utils/units'
 import { calculateExpirationDate, formatExpirationDate, getExpirationStatus } from '../utils/expiration'
 import { generateSamplePantryData, generateSampleGroceryData } from '../utils/starterData'
@@ -77,6 +80,7 @@ function EditableControls() {
 export default function PantryPage({ onBack }: PantryPageProps) {
   const { pantryData, setPantryData, getRecentlyDepleted, getFrequentlyUsed } = usePantry()
   const { addGroceryItem } = useGrocery()
+  const { currentUser } = useAuth()
   const toast = useToast()
   const [newItem, setNewItem] = useState<Partial<PantryItem>>({})
   const [editItem, setEditItem] = useState<PantryItem | null>(null)
@@ -385,6 +389,21 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                   >
                     Load Sample Data
                   </Button>
+                  {currentUser && (
+                    <PantrySharing
+                      pantryLocations={pantryData.map(location => ({
+                        id: location.id,
+                        name: location.name,
+                        isOwner: true
+                      }))}
+                      userId={currentUser.uid}
+                      userEmail={currentUser.email || ''}
+                      onSharingUpdate={() => {
+                        // Refresh pantry data when sharing is updated
+                        window.location.reload()
+                      }}
+                    />
+                  )}
                   <Button 
                     style={{ backgroundColor: brandColor, color: 'white' }}
                     _hover={{ backgroundColor: '#2da89c' }}
@@ -414,9 +433,9 @@ export default function PantryPage({ onBack }: PantryPageProps) {
             </VStack>
           </VStack>
 
-          {/* Recently Used & Recently Added Sections */}
-          {(recentlyDepleted.length > 0 || recentlyAdded.length > 0) && (
-            <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6} w="full">
+          {/* Recently Used & Recently Added & Activity Sections */}
+          {(recentlyDepleted.length > 0 || recentlyAdded.length > 0 || currentUser) && (
+            <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={6} w="full">
               {/* Recently Used Section */}
               {recentlyDepleted.length > 0 && (
                 <Box w="full">
@@ -591,6 +610,17 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                   </List>
                 </Box>
               )}
+
+              {/* Activity Feed Section */}
+              {currentUser && pantryData.length > 0 && (
+                <Box w="full">
+                  <ActivityFeed
+                    pantryLocationId={pantryData[0]?.id || ''}
+                    userId={currentUser.uid}
+                    isVisible={true}
+                  />
+                </Box>
+              )}
             </SimpleGrid>
           )}
 
@@ -601,6 +631,12 @@ export default function PantryPage({ onBack }: PantryPageProps) {
                 {/* Location Header */}
                 <HStack justify="space-between" mb={4} pb={2} borderBottom="2px" borderColor={borderColor}>
                   <HStack spacing={3}>
+                    {/* Show sharing indicator for demo purposes */}
+                    {location.name.toLowerCase().includes('shared') && (
+                      <Badge colorScheme="blue" variant="outline" size="sm">
+                        Shared by Mom
+                      </Badge>
+                    )}
                     <Editable
                       value={editingLocationId === location.id ? editingLocationName : location.name}
                       onSubmit={(value) => {
