@@ -22,6 +22,10 @@
     "db:optimize": "bun run scripts/optimize-db.ts",
     "setup": "bun install && bun run db:up && bun run scripts/wait-for-db.ts && bun run db:push && bun run db:generate",
     "setup:fresh": "bun run db:reset && bun run db:push && bun run db:generate && bun run db:optimize",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:performance": "bun run scripts/performance-test.ts",
     "wait-for-db": "bun run scripts/wait-for-db.ts"
   },
@@ -47,11 +51,15 @@
     "react-router-dom": "^6.20.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.4",
     "@types/node": "^20.10.4",
     "@types/react": "^18.2.42",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.0",
+    "@vitest/ui": "^3.2.4",
+    "jsdom": "^26.1.0",
     "typescript": "^5.3.3",
-    "vite": "^5.0.8"
+    "vite": "^5.0.8",
+    "vitest": "^3.2.4"
   }
 }
