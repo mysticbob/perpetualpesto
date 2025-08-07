@@ -12,6 +12,7 @@
         "@prisma/client": "^5.7.1",
         "axios": "^1.6.2",
         "cheerio": "^1.0.0-rc.12",
+        "compressorjs": "^1.2.1",
         "concurrently": "^8.2.2",
         "convert": "^5.12.0",
         "culinary-unit-abbreviation": "^1.1.0",
@@ -24,6 +25,7 @@
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-router-dom": "^6.20.1",
+        "react-webcam": "^7.2.0",
       },
       "devDependencies": {
         "@types/node": "^20.10.4",
@@ -320,6 +322,8 @@
 
     "binary-extensions": ["binary-extensions@2.3.0", "", {}, "sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw=="],
 
+    "blueimp-canvas-to-blob": ["blueimp-canvas-to-blob@3.29.0", "", {}, "sha512-0pcSSGxC0QxT+yVkivxIqW0Y4VlO2XSDPofBAqoJ1qJxgH9eiUDLv50Rixij2cDuEfx4M6DpD9UGZpRhT5Q8qg=="],
+
     "boolbase": ["boolbase@1.0.0", "", {}, ""],
 
     "brace-expansion": ["brace-expansion@4.0.1", "", { "dependencies": { "balanced-match": "^3.0.0" } }, "sha512-YClrbvTCXGe70pU2JiEiPLYXO9gQkyxYeKpJIQHVS/gOs6EWMQP2RYBwjFLNT322Ji8TOC3IMPfsYCedNpzKfA=="],
@@ -351,6 +355,8 @@
     "color2k": ["color2k@2.0.3", "", {}, ""],
 
     "combined-stream": ["combined-stream@1.0.8", "", { "dependencies": { "delayed-stream": "~1.0.0" } }, ""],
+
+    "compressorjs": ["compressorjs@1.2.1", "", { "dependencies": { "blueimp-canvas-to-blob": "^3.29.0", "is-blob": "^2.1.0" } }, "sha512-+geIjeRnPhQ+LLvvA7wxBQE5ddeLU7pJ3FsKFWirDw6veY3s9iLxAQEw7lXGHnhCJvBujEQWuNnGzZcvCvdkLQ=="],
 
     "concurrently": ["concurrently@8.2.2", "", { "dependencies": { "chalk": "^4.1.2", "date-fns": "^2.30.0", "lodash": "^4.17.21", "rxjs": "^7.8.1", "shell-quote": "^1.8.1", "spawn-command": "0.0.2", "supports-color": "^8.1.1", "tree-kill": "^1.2.2", "yargs": "^17.7.2" }, "bin": { "conc": "dist/bin/concurrently.js", "concurrently": "dist/bin/concurrently.js" } }, ""],
 
@@ -482,6 +488,8 @@
 
     "is-binary-path": ["is-binary-path@2.1.0", "", { "dependencies": { "binary-extensions": "^2.0.0" } }, "sha512-ZMERYes6pDydyuGidse7OsHxtbI7WVeUEozgR/g7rd0xUimYNlvZRE/K2MgZTjWy725IfelLeVcEM97mmtRGXw=="],
 
+    "is-blob": ["is-blob@2.1.0", "", {}, "sha512-SZ/fTft5eUhQM6oF/ZaASFDEdbFVe89Imltn9uZr03wdKMcWNVYSMjQPFtg05QuNkt5l5c135ElvXEQG0rk4tw=="],
+
     "is-core-module": ["is-core-module@2.16.1", "", { "dependencies": { "hasown": "^2.0.2" } }, ""],
 
     "is-extglob": ["is-extglob@2.1.1", "", {}, "sha512-SbKbANkN603Vi4jEZv49LeVJMn4yGwsbzZworEoyEiutsN3nJYdbO36zfhGJ6QEDpOZIFkDtnq5JRxmvl3jsoQ=="],
@@ -595,6 +603,8 @@
     "react-router-dom": ["react-router-dom@6.30.1", "", { "dependencies": { "@remix-run/router": "1.23.0", "react-router": "6.30.1" }, "peerDependencies": { "react": ">=16.8", "react-dom": ">=16.8" } }, ""],
 
     "react-style-singleton": ["react-style-singleton@2.2.3", "", { "dependencies": { "get-nonce": "^1.0.0", "tslib": "^2.0.0" }, "peerDependencies": { "@types/react": "*", "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc" } }, ""],
+
+    "react-webcam": ["react-webcam@7.2.0", "", { "peerDependencies": { "react": ">=16.2.0", "react-dom": ">=16.2.0" } }, "sha512-xkrzYPqa1ag2DP+2Q/kLKBmCIfEx49bVdgCCCcZf88oF+0NPEbkwYk3/s/C7Zy0mhM8k+hpdNkBLzxg8H0aWcg=="],
 
     "readdirp": ["readdirp@3.6.0", "", { "dependencies": { "picomatch": "^2.2.1" } }, "sha512-hOS089on8RduqdbhvQ5Z37A0ESjsqz6qnRcffsMU3495FuTdqSm+7bhJ29JvIOsBDEEnan5DPu9t3To9VRlMzA=="],
 

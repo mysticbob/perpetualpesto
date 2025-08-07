@@ -3,10 +3,14 @@ import { getAIService } from '../services/ai/aiService';
 import { getAIConfig } from '../services/ai/config';
 import { AIError, AIErrorCode } from '../services/ai/errorHandler';
 import type { ChatMessage } from '../services/ai/openai.service';
+import aiCommandsRoute from './aiCommands';
 
 const app = new Hono();
 const aiService = getAIService();
 const config = getAIConfig();
+
+// Mount command processing routes
+app.route('/commands', aiCommandsRoute);
 
 // Middleware to check if AI features are enabled
 app.use('*', async (c, next) => {
