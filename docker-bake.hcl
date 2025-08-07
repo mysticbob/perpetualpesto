@@ -48,9 +48,6 @@ target "app" {
   args = {
     NODE_ENV = "production"
   }
-  platforms = ["linux/amd64", "linux/arm64"]
-  cache-from = ["type=registry,ref=${REGISTRY}/nochickenleftbehind:buildcache"]
-  cache-to = ["type=registry,ref=${REGISTRY}/nochickenleftbehind:buildcache,mode=max"]
 }
 
 // Development build with hot reload
@@ -60,13 +57,6 @@ target "app-dev" {
   target = "development"
   args = {
     NODE_ENV = "development"
-  }
-  // Mount source code for hot reload in development
-  contexts = {
-    source = {
-      context = "."
-      dockerfile = "Dockerfile.dev"
-    }
   }
 }
 

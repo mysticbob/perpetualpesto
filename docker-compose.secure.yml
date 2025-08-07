@@ -105,7 +105,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-recipe_user}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-recipe_planner}?schema=public&sslmode=disable
-    command: ["npx", "prisma", "migrate", "deploy"]
+    command: ["bunx", "prisma", "migrate", "deploy"]
     security_opt:
       - no-new-privileges:true
 
