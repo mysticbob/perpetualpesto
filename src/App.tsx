@@ -10,11 +10,13 @@ import PantryPage from './components/PantryPage'
 import StoresPage from './components/StoresPage'
 import RecipesPage from './components/RecipesPage'
 import PerformanceMonitor from './components/PerformanceMonitor'
+import ChatInterface from './components/ai/ChatInterface'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { PantryProvider } from './contexts/PantryContext'
 import { TimerProvider } from './contexts/TimerContext'
 import { AuthProvider } from './contexts/AuthContext'
 import { GroceryProvider } from './contexts/GroceryContext'
+import { AIProvider } from './contexts/AIContext'
 import ProtectedRoute from './components/ProtectedRoute'
 
 type ViewType = 'list' | 'extract' | 'calendar' | 'grocery' | 'add' | 'preferences' | 'pantry' | 'stores'
@@ -116,27 +118,34 @@ function App() {
         <PreferencesProvider>
           <PantryProvider>
             <GroceryProvider>
-              <TimerProvider>
-                <Box display="flex" h="100vh">
-                  <Sidebar 
-                    currentView={getCurrentSidebarView()}
-                    onNavigate={handleNavigate}
-                    isCollapsed={sidebarCollapsed}
-                    onToggleCollapse={toggleSidebar}
-                  />
-                  
-                  <Box 
-                    flex={1} 
-                    ml={sidebarWidth} 
-                    transition="margin-left 0.2s"
-                    overflow="auto"
-                  >
-                    {renderCurrentView()}
+              <AIProvider>
+                <TimerProvider>
+                  <Box display="flex" h="100vh">
+                    <Sidebar 
+                      currentView={getCurrentSidebarView()}
+                      onNavigate={handleNavigate}
+                      isCollapsed={sidebarCollapsed}
+                      onToggleCollapse={toggleSidebar}
+                    />
+                    
+                    <Box 
+                      flex={1} 
+                      ml={sidebarWidth} 
+                      transition="margin-left 0.2s"
+                      overflow="auto"
+                    >
+                      {renderCurrentView()}
+                    </Box>
+                    
+                    <ChatInterface 
+                      position="bottom-right"
+                      onCommand={(cmd) => console.log('Command:', cmd)}
+                    />
+                    
+                    <PerformanceMonitor />
                   </Box>
-                  
-                  <PerformanceMonitor />
-                </Box>
-              </TimerProvider>
+                </TimerProvider>
+              </AIProvider>
             </GroceryProvider>
           </PantryProvider>
         </PreferencesProvider>

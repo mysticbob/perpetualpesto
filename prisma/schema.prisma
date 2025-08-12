@@ -29,6 +29,15 @@ model User {
   sharedByShares PantryShare[] @relation("SharedByUser")
   pantryInvitations PantryInvitation[]
   activityLogs   PantryActivityLog[]
+  
+  // AI Relations
+  aiConversations   AIConversation[]
+  aiCommands        AICommand[]
+  aiImageAnalyses   AIImageAnalysis[]
+  aiRecipeSuggestions AIRecipeSuggestion[]
+  aiUserPreferences AIUserPreference[]
+  aiUsageAnalytics  AIUsageAnalytics[]
+  aiContextCache    AIContextCache[]
 
   // Performance indexes
   @@index([email])
@@ -72,6 +81,7 @@ model Recipe {
   userRecipes  UserRecipe[]
   ratings      RecipeRating[]
   mealPlans    MealPlan[]
+  aiSuggestions AIRecipeSuggestion[]
 
   // Performance indexes
   @@index([name]) // For recipe name searches
@@ -352,4 +362,158 @@ model PantryActivityLog {
   @@index([pantryLocationId, createdAt(sort: Desc)])
   @@index([userId])
   @@map("pantry_activity_logs")
+}
+
+// AI Models
+model AIConversation {
+  id        String    @id @default(cuid())
+  userId    String
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  isActive  Boolean   @default(true)
+  metadata  Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AIMessage[]
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  role           String // 'user', 'assistant', 'system'
+  content        String
+  intent         String?
+  entities       Json?
+  confidence     Float?
+  tokens         Int?
+  timestamp      DateTime       @default(now())
+  metadata       Json?
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  commands     AICommand[]
+
+  @@index([conversationId])
+  @@index([timestamp])
+  @@map("ai_messages")
+}
+
+model AICommand {
+  id            String    @id @default(cuid())
+  userId        String
+  messageId     String?
+  command       String
+  intent        String
+  parameters    Json?
+  result        Json?
+  success       Boolean   @default(false)
+  executedAt    DateTime  @default(now())
+  executionTime Int? // in milliseconds
+  error         String?
+
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message AIMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([executedAt])
+  @@index([intent])
+  @@map("ai_commands")
+}
+
+model AIImageAnalysis {
+  id            String   @id @default(cuid())
+  userId        String
+  imageUrl      String
+  analysisType  String // 'pantry', 'grocery', 'leftovers'
+  detectedItems Json
+  confidence    Float?
+  processedAt   DateTime @default(now())
+  metadata      Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([processedAt])
+  @@map("ai_image_analyses")
+}
+
+model AIRecipeSuggestion {
+  id                 String   @id @default(cuid())
+  userId             String
+  recipeId           String?
+  suggestedName      String
+  reason             String
+  matchPercentage    Float
+  missingIngredients Json?
+  substituteOptions  Json?
+  score              Float?
+  selected           Boolean  @default(false)
+  feedback           String? // 'liked', 'disliked', 'cooked'
+  suggestedAt        DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([suggestedAt])
+  @@map("ai_recipe_suggestions")
+}
+
+model AIUserPreference {
+  id             String   @id @default(cuid())
+  userId         String
+  preferenceType String // 'communication_style', 'response_length', etc.
+  value          String
+  confidence     Float?
+  learnedFrom    Json? // track how we learned this preference
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([preferenceType])
+  @@map("ai_user_preferences")
+}
+
+model AIUsageAnalytics {
+  id           String   @id @default(cuid())
+  userId       String
+  feature      String // 'chat', 'vision', 'voice', 'suggestions'
+  action       String
+  tokensUsed   Int?
+  cost         Float?
+  responseTime Int? // in milliseconds
+  success      Boolean  @default(true)
+  error        String?
+  timestamp    DateTime @default(now())
+  metadata     Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([feature])
+  @@index([timestamp])
+  @@map("ai_usage_analytics")
+}
+
+model AIContextCache {
+  id          String    @id @default(cuid())
+  userId      String
+  contextType String // 'session', 'history', 'preferences'
+  data        Json
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("ai_context_cache")
 }
