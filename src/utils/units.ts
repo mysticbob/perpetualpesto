@@ -1,25 +1,8 @@
-import { Fraction } from 'fraction.js'
 import convert from 'convert'
 import culinaryUnitAbbreviation from 'culinary-unit-abbreviation'
+import { parseFraction } from './fractionParser'
 
 export type UnitSystem = "metric" | "imperial"
-
-// Enhanced fraction parser using fraction.js for precision
-function parseFraction(amount: string): number {
-  if (!amount || typeof amount !== 'string') return 0
-  
-  try {
-    const cleanAmount = amount.trim()
-    
-    // Use fraction.js to handle all fraction formats
-    const fraction = new Fraction(cleanAmount)
-    return fraction.valueOf()
-  } catch (error) {
-    // Fallback to parseFloat for simple numbers
-    const numericValue = parseFloat(amount)
-    return isNaN(numericValue) ? 0 : numericValue
-  }
-}
 
 // Standardize unit names using culinary-unit-abbreviation
 function standardizeUnit(unit: string): string {

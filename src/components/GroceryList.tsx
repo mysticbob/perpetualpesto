@@ -35,6 +35,7 @@ import { ChevronLeftIcon, AddIcon, DeleteIcon, CheckIcon, ExternalLinkIcon } fro
 import ExportToReminders from './ExportToReminders'
 import { usePantry } from '../contexts/PantryContext'
 import { useGrocery, GroceryItem } from '../contexts/GroceryContext'
+import { parseAmount, formatAmount } from '../utils/amountParsing'
 import { calculateExpirationDate } from '../utils/expiration'
 
 interface Store {
@@ -210,70 +211,6 @@ export default function GroceryList({ onBack }: GroceryListProps) {
       .join(' ')
   }
 
-  // Helper function to parse amounts for consolidation
-  const parseAmountForPantry = (amount?: string): { value: number; unit?: string } => {
-    if (!amount) return { value: 1 }
-    
-    // Handle fractions like "1/2", "3/4", etc.
-    const fractionMatch = amount.match(/^(\d+)\/(\d+)/)
-    if (fractionMatch) {
-      const numerator = parseInt(fractionMatch[1])
-      const denominator = parseInt(fractionMatch[2])
-      return { value: numerator / denominator }
-    }
-    
-    // Handle mixed numbers like "1 1/2"
-    const mixedMatch = amount.match(/^(\d+)\s+(\d+)\/(\d+)/)
-    if (mixedMatch) {
-      const whole = parseInt(mixedMatch[1])
-      const numerator = parseInt(mixedMatch[2])
-      const denominator = parseInt(mixedMatch[3])
-      return { value: whole + (numerator / denominator) }
-    }
-    
-    // Handle regular numbers
-    const numberMatch = amount.match(/^(\d+(?:\.\d+)?)/)
-    if (numberMatch) {
-      return { value: parseFloat(numberMatch[1]) }
-    }
-    
-    return { value: 1 }
-  }
-
-  // Helper function to format consolidated amounts
-  const formatPantryAmount = (value: number): string => {
-    if (value === Math.floor(value)) {
-      return value.toString()
-    }
-    
-    // Convert decimals to fractions for common cooking measurements
-    const commonFractions = [
-      { decimal: 0.125, fraction: '1/8' },
-      { decimal: 0.25, fraction: '1/4' },
-      { decimal: 0.333, fraction: '1/3' },
-      { decimal: 0.5, fraction: '1/2' },
-      { decimal: 0.667, fraction: '2/3' },
-      { decimal: 0.75, fraction: '3/4' }
-    ]
-    
-    for (const { decimal, fraction } of commonFractions) {
-      if (Math.abs(value - decimal) < 0.01) {
-        return fraction
-      }
-    }
-    
-    // Check for mixed numbers
-    const whole = Math.floor(value)
-    const remainder = value - whole
-    
-    for (const { decimal, fraction } of commonFractions) {
-      if (Math.abs(remainder - decimal) < 0.01) {
-        return whole > 0 ? `${whole} ${fraction}` : fraction
-      }
-    }
-    
-    return value.toFixed(2).replace(/\.?0+$/, '')
-  }
 
   const addItemToPantry = (groceryItem: GroceryItem) => {
     const now = new Date().toISOString()
@@ -304,8 +241,8 @@ export default function GroceryList({ onBack }: GroceryListProps) {
           if (location.id !== existingLocation) return location
           
           const existingItem = location.items[existingItemIndex]
-          const existingParsed = parseAmountForPantry(existingItem.amount)
-          const newParsed = parseAmountForPantry(groceryItem.amount)
+          const existingParsed = parseAmount(existingItem.amount)
+          const newParsed = parseAmount(groceryItem.amount)
           const totalAmount = existingParsed.value + newParsed.value
           
           // Calculate expiration date for the existing location
@@ -315,7 +252,7 @@ export default function GroceryList({ onBack }: GroceryListProps) {
           const updatedItems = [...location.items]
           updatedItems[existingItemIndex] = {
             ...existingItem,
-            amount: formatPantryAmount(totalAmount),
+            amount: formatAmount(totalAmount),
             unit: groceryItem.unit || existingItem.unit || 'pieces',
             addedDate: now, // Update the added date
             expirationDate // Update expiration date

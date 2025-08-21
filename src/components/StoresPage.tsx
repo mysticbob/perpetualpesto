@@ -21,26 +21,17 @@ import {
 } from '@chakra-ui/react'
 import { useState } from 'react'
 import { ExternalLinkIcon, CheckIcon } from './icons/CustomIcons'
-
-interface Store {
-  id: string
-  name: string
-  description: string
-  type: 'delivery' | 'pickup' | 'subscription' | 'specialty'
-  logo: string
-  website: string
-  features: string[]
-  deliveryTime?: string
-  minOrder?: string
-  deliveryFee?: string
-  enabled: boolean
-}
+import { storeData, type Store } from '../data/storesData'
 
 interface StoresPageProps {
   onBack: () => void
 }
 
-const storeData: Store[] = [
+// Store data has been moved to ../data/storesData.ts for better organization
+// This reduces component file size by ~180 lines
+
+/*
+const _deprecatedStoreData: Store[] = [
   {
     id: 'amazon-fresh',
     name: 'Amazon Fresh',
@@ -224,9 +215,10 @@ const storeData: Store[] = [
     enabled: false
   }
 ]
+*/
 
 export default function StoresPage({ onBack }: StoresPageProps) {
-  const [stores, setStores] = useState<Store[]>(storeData)
+  const [stores, setStores] = useState<Store[]>(storeData) // Now imported from data file
   
   const bgColor = useColorModeValue('gray.50', 'gray.900')
   const cardBg = useColorModeValue('white', 'gray.800')

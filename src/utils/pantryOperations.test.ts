@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { convertToCommonUnit } from './units'
+import { parseFraction } from './fractionParser'
 
 // Mock pantry item interface
 interface PantryItem {
@@ -9,32 +10,6 @@ interface PantryItem {
   unit: string
   location: string
   category?: string
-}
-
-// Utility functions for adding/removing quantities
-function parseFraction(amount: string): number {
-  if (!amount || typeof amount !== 'string') return 0
-  
-  // Handle fractions like "1/3", "1 1/2", "2/3", etc.
-  const fractionMatch = amount.match(/^(\d+)?\s*(\d+)\/(\d+)$/)
-  if (fractionMatch) {
-    const whole = parseInt(fractionMatch[1] || '0')
-    const numerator = parseInt(fractionMatch[2])
-    const denominator = parseInt(fractionMatch[3])
-    return whole + (numerator / denominator)
-  }
-  
-  // Handle mixed numbers like "1 1/2"
-  const mixedMatch = amount.match(/^(\d+)\s+(\d+)\/(\d+)$/)
-  if (mixedMatch) {
-    const whole = parseInt(mixedMatch[1])
-    const numerator = parseInt(mixedMatch[2])
-    const denominator = parseInt(mixedMatch[3])
-    return whole + (numerator / denominator)
-  }
-  
-  // Regular number
-  return parseFloat(amount)
 }
 
 function formatAmount(amount: number): string {

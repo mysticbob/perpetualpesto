@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { convertToCommonUnit } from '../utils/units'
+import { parseFraction } from '../utils/fractionParser'
 import { generateSamplePantryData, shouldShowStarterData } from '../utils/starterData'
 import { useAuth } from './AuthContext'
 
@@ -455,29 +456,6 @@ export function PantryProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Helper function for parsing fractions
-  const parseFraction = (amount: string): number => {
-    // Handle fractions like "1/3", "1 1/2", "2/3", etc.
-    const fractionMatch = amount.match(/^(\d+)?\s*(\d+)\/(\d+)$/)
-    if (fractionMatch) {
-      const whole = parseInt(fractionMatch[1] || '0')
-      const numerator = parseInt(fractionMatch[2])
-      const denominator = parseInt(fractionMatch[3])
-      return whole + (numerator / denominator)
-    }
-    
-    // Handle mixed numbers like "1 1/2"
-    const mixedMatch = amount.match(/^(\d+)\s+(\d+)\/(\d+)$/)
-    if (mixedMatch) {
-      const whole = parseInt(mixedMatch[1])
-      const numerator = parseInt(mixedMatch[2])
-      const denominator = parseInt(mixedMatch[3])
-      return whole + (numerator / denominator)
-    }
-    
-    // Regular number
-    return parseFloat(amount)
-  }
 
 
   const addDepletedItem = (item: PantryItem) => {

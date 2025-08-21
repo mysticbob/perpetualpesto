@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { generateSampleGroceryData, shouldShowStarterData } from '../utils/starterData'
+import { parseAmount, formatAmount } from '../utils/amountParsing'
 import { useAuth } from './AuthContext'
 
 export interface GroceryItem {
@@ -110,70 +111,6 @@ export const GroceryProvider = ({ children }: GroceryProviderProps) => {
     }
   }, [currentUser, groceryItems, loading])
 
-  // Helper function to parse amount strings like "2 cloves", "1/2 tsp", etc.
-  const parseAmount = (amount?: string): { value: number; unit?: string } => {
-    if (!amount) return { value: 1 }
-    
-    // Handle fractions like "1/2", "3/4", etc.
-    const fractionMatch = amount.match(/^(\d+)\/(\d+)/)
-    if (fractionMatch) {
-      const numerator = parseInt(fractionMatch[1])
-      const denominator = parseInt(fractionMatch[2])
-      return { value: numerator / denominator }
-    }
-    
-    // Handle mixed numbers like "1 1/2"
-    const mixedMatch = amount.match(/^(\d+)\s+(\d+)\/(\d+)/)
-    if (mixedMatch) {
-      const whole = parseInt(mixedMatch[1])
-      const numerator = parseInt(mixedMatch[2])
-      const denominator = parseInt(mixedMatch[3])
-      return { value: whole + (numerator / denominator) }
-    }
-    
-    // Handle regular numbers
-    const numberMatch = amount.match(/^(\d+(?:\.\d+)?)/)
-    if (numberMatch) {
-      return { value: parseFloat(numberMatch[1]) }
-    }
-    
-    return { value: 1 }
-  }
-
-  // Helper function to format amount back to string
-  const formatAmount = (value: number): string => {
-    if (value === Math.floor(value)) {
-      return value.toString()
-    }
-    
-    // Convert decimals to fractions for common cooking measurements
-    const commonFractions = [
-      { decimal: 0.125, fraction: '1/8' },
-      { decimal: 0.25, fraction: '1/4' },
-      { decimal: 0.333, fraction: '1/3' },
-      { decimal: 0.5, fraction: '1/2' },
-      { decimal: 0.667, fraction: '2/3' },
-      { decimal: 0.75, fraction: '3/4' }
-    ]
-    
-    for (const { decimal, fraction } of commonFractions) {
-      if (Math.abs(value - decimal) < 0.01) {
-        return fraction
-      }
-    }
-    
-    // Check for mixed numbers
-    const whole = Math.floor(value)
-    const remainder = value - whole
-    
-    for (const { decimal, fraction } of commonFractions) {
-      if (Math.abs(remainder - decimal) < 0.01) {
-        return whole > 0 ? `${whole} ${fraction}` : fraction
-      }
-    }
-    
-    return value.toFixed(2).replace(/\.?0+$/, '')
-  }
 
   // Helper function to normalize units for comparison
   const normalizeUnit = (unit?: string): string => {
