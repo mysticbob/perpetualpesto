@@ -1,4 +1,4 @@
-import { prisma } from '../../../server/lib/db';
+import { prisma } from '../../../../server/lib/db';
 import { CommandIntent, type ProcessedCommand } from './commandProcessor';
 import { entityExtractor, type ExtractedIngredient } from './entityExtractor';
 import type { PantryLocation } from '@prisma/client';

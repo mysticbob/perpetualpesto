@@ -7,7 +7,7 @@ const isDevelopment = process.env.NODE_ENV === 'development'
 const isTest = process.env.NODE_ENV === 'test'
 
 export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003',
   timeout: 30000,
   retryAttempts: 3,
   retryDelay: 1000,
