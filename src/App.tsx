@@ -9,7 +9,7 @@ import PreferencesPage from './components/PreferencesPage'
 import PantryPage from './components/PantryPage'
 import StoresPage from './components/StoresPage'
 import RecipesPage from './components/RecipesPage'
-import PerformanceMonitor from './components/PerformanceMonitor'
+// import PerformanceMonitor from './components/PerformanceMonitor' // Disabled for now
 import ChatInterface from './components/ai/ChatInterface'
 import { PreferencesProvider } from './contexts/PreferencesContext'
 import { PantryProvider } from './contexts/PantryContext'
@@ -142,7 +142,7 @@ function App() {
                       onCommand={(cmd) => console.log('Command:', cmd)}
                     />
                     
-                    <PerformanceMonitor />
+                    {/* <PerformanceMonitor /> */} {/* Disabled for now */}
                   </Box>
                 </TimerProvider>
               </AIProvider>
