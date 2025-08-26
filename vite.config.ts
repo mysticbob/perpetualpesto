@@ -9,8 +9,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  define: {
+    'process.env': {},
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
+  },
   server: {
-    port: 3000,
+    port: 4000,
+    host: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

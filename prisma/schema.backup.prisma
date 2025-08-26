@@ -1,0 +1,611 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  preferences    UserPreferences?
+  userRecipes    UserRecipe[]
+  recipeRatings  RecipeRating[]
+  pantryLocations PantryLocation[]
+  pantryItems    PantryItem[]
+  groceryItems   GroceryItem[]
+  depletedItems  DepletedItem[]
+  mealPlans      MealPlan[]
+  userStores     UserStore[]
+  pantryShares   PantryShare[]
+  sharedByShares PantryShare[] @relation("SharedByUser")
+  pantryInvitations PantryInvitation[]
+  activityLogs   PantryActivityLog[]
+  instacartAuth  InstacartAuth?
+  
+  // AI Relations
+  aiConversations   AIConversation[]
+  aiCommands        AICommand[]
+  aiImageAnalyses   AIImageAnalysis[]
+  aiRecipeSuggestions AIRecipeSuggestion[]
+  aiUserPreferences AIUserPreference[]
+  aiUsageAnalytics  AIUsageAnalytics[]
+  aiContextCache    AIContextCache[]
+
+  // Performance indexes
+  @@index([email])
+  @@map("users")
+}
+
+model UserPreferences {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  unitSystem            String   @default("metric")
+  themeMode             String   @default("system")
+  language              String   @default("en")
+  timezone              String   @default("UTC")
+  expirationWarningDays Int      @default(3)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model Recipe {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  prepTime    Int?     // minutes
+  cookTime    Int?     // minutes
+  totalTime   Int?     // minutes
+  servings    Int?
+  difficulty  String?
+  imageUrl    String?
+  sourceUrl   String?
+  createdBy   String?  // User ID who originally created/imported this recipe
+  isPublic    Boolean  @default(true) // If false, only visible to createdBy user
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ingredients  Ingredient[]
+  instructions Instruction[]
+  userRecipes  UserRecipe[]
+  ratings      RecipeRating[]
+  mealPlans    MealPlan[]
+  aiSuggestions AIRecipeSuggestion[]
+
+  // Performance indexes
+  @@index([name]) // For recipe name searches
+  @@index([totalTime]) // For filtering by cooking time
+  @@index([createdBy]) // For user's created recipes
+  @@index([isPublic]) // For public recipe searches
+  @@map("recipes")
+}
+
+model UserRecipe {
+  id             String    @id @default(cuid())
+  userId         String
+  recipeId       String
+  customServings Int?      // User's preferred serving size for this recipe
+  customNotes    String?   // User's personal notes about this recipe
+  isFavorite     Boolean   @default(false)
+  timesCooked    Int       @default(0)
+  lastCookedAt   DateTime?
+  addedAt        DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@unique([userId, recipeId])
+  @@index([userId, addedAt(sort: Desc)]) // For user's recipes sorted by newest
+  @@index([userId, isFavorite]) // For user's favorite recipes
+  @@index([userId, timesCooked(sort: Desc)]) // For user's most cooked recipes
+  @@map("user_recipes")
+}
+
+model Ingredient {
+  id       String @id @default(cuid())
+  recipeId String
+  name     String
+  amount   String?
+  unit     String?
+  order    Int
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([recipeId, order]) // For ordered ingredient queries
+  @@index([name]) // For ingredient name searches
+  @@map("ingredients")
+}
+
+model Instruction {
+  id       String @id @default(cuid())
+  recipeId String
+  step     String
+  order    Int
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([recipeId, order]) // For ordered instruction queries
+  @@map("instructions")
+}
+
+model PantryLocation {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items PantryItem[]
+  shares PantryShare[]
+  invitations PantryInvitation[]
+  activityLogs PantryActivityLog[]
+
+  // Performance indexes
+  @@index([userId, order]) // For ordered pantry locations
+  @@map("pantry_locations")
+}
+
+model PantryItem {
+  id             String    @id @default(cuid())
+  userId         String
+  locationId     String
+  name           String
+  amount         String
+  unit           String
+  category       String?
+  expirationDate DateTime?
+  addedDate      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location PantryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, locationId]) // For user's items in specific location
+  @@index([userId, expirationDate]) // For expiration tracking
+  @@index([userId, addedDate(sort: Desc)]) // For recently added items
+  @@index([name]) // For ingredient searches
+  @@map("pantry_items")
+}
+
+model GroceryItem {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  amount    String?
+  unit      String?
+  category  String?
+  completed Boolean  @default(false)
+  addedDate DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, completed]) // For filtering completed/pending items
+  @@index([userId, addedDate(sort: Desc)]) // For recently added items
+  @@map("grocery_items")
+}
+
+model DepletedItem {
+  id               String   @id @default(cuid())
+  userId           String
+  name             String
+  lastAmount       String
+  unit             String
+  category         String?
+  depletedDate     DateTime @default(now())
+  timesUsed        Int      @default(1)
+  isFrequentlyUsed Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, depletedDate(sort: Desc)]) // For recently depleted items
+  @@index([userId, timesUsed(sort: Desc)]) // For frequently used items
+  @@map("depleted_items")
+}
+
+model MealPlan {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  date      DateTime
+  mealType  String   // breakfast, lunch, dinner, snack
+  servings  Int?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, date]) // For user's meal plans by date
+  @@index([userId, mealType]) // For filtering by meal type
+  @@map("meal_plans")
+}
+
+model RecipeRating {
+  id        String   @id @default(cuid())
+  userId    String
+  recipeId  String
+  rating    Int      // 1-5 stars
+  review    String?  // Optional text review
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@unique([userId, recipeId]) // One rating per user per recipe
+  @@index([recipeId, rating]) // For recipe rating aggregation
+  @@index([userId, rating(sort: Desc)]) // For user's highest rated recipes
+  @@map("recipe_ratings")
+}
+
+model UserStore {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  storeType    String   // delivery, pickup, subscription, specialty
+  website      String?
+  logoUrl      String?
+  isEnabled    Boolean  @default(true)
+  deliveryTime String?
+  minOrder     String?
+  deliveryFee  String?
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([userId, isEnabled]) // For enabled stores
+  @@index([userId, order]) // For ordered stores
+  @@map("user_stores")
+}
+
+model InstacartAuth {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  email             String?  // Instacart account email
+  accessToken       String?  // OAuth access token (encrypted)
+  refreshToken      String?  // OAuth refresh token (encrypted)
+  tokenExpiry       DateTime? // Token expiration time
+  accountStatus     String   @default("disconnected") // connected, disconnected, error
+  lastSyncedAt      DateTime?
+  preferredStoreId  String?  // Default Instacart store
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  carts InstacartCart[]
+  orders InstacartOrder[]
+
+  @@index([userId])
+  @@map("instacart_auth")
+}
+
+model InstacartCart {
+  id              String   @id @default(cuid())
+  userId          String
+  instacartAuthId String
+  cartId          String?  // Instacart's cart ID
+  status          String   @default("draft") // draft, active, submitted, abandoned
+  itemCount       Int      @default(0)
+  subtotal        Float?   // Cart subtotal in cents
+  deliveryFee     Float?   // Delivery fee in cents
+  serviceFee      Float?   // Service fee in cents
+  tax             Float?   // Tax amount in cents
+  total           Float?   // Total amount in cents
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  auth  InstacartAuth @relation(fields: [instacartAuthId], references: [id], onDelete: Cascade)
+  items InstacartCartItem[]
+  order InstacartOrder?
+
+  @@index([userId, status])
+  @@index([instacartAuthId])
+  @@map("instacart_carts")
+}
+
+model InstacartCartItem {
+  id                 String   @id @default(cuid())
+  cartId             String
+  groceryItemId      String?  // Link to our grocery item
+  instacartProductId String?  // Instacart's product ID
+  name               String
+  quantity           Float
+  unit               String?
+  price              Float?   // Price per unit in cents
+  totalPrice         Float?   // Total price in cents
+  imageUrl           String?
+  isAvailable        Boolean  @default(true)
+  substitutionId     String?  // Suggested substitution product ID
+  notes              String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  cart InstacartCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+  @@map("instacart_cart_items")
+}
+
+model InstacartOrder {
+  id               String   @id @default(cuid())
+  userId           String
+  instacartAuthId  String
+  cartId           String   @unique
+  orderId          String?  // Instacart's order ID
+  status           String   // pending, confirmed, shopping, delivering, delivered, cancelled
+  deliveryTime     DateTime?
+  deliveryAddress  String?
+  total            Float?   // Total amount in cents
+  receiptUrl       String?
+  trackingUrl      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  auth InstacartAuth @relation(fields: [instacartAuthId], references: [id], onDelete: Cascade)
+  cart InstacartCart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([instacartAuthId])
+  @@map("instacart_orders")
+}
+
+enum PantryPermission {
+  VIEW
+  EDIT
+  MANAGE
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+model PantryShare {
+  id               String           @id @default(cuid())
+  pantryLocationId String
+  userId           String
+  sharedByUserId   String
+  permission       PantryPermission @default(VIEW)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  expiresAt        DateTime?
+
+  pantryLocation PantryLocation @relation(fields: [pantryLocationId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sharedByUser   User           @relation("SharedByUser", fields: [sharedByUserId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@unique([pantryLocationId, userId])
+  @@index([userId])
+  @@index([pantryLocationId])
+  @@index([sharedByUserId])
+  @@map("pantry_shares")
+}
+
+model PantryInvitation {
+  id               String           @id @default(cuid())
+  pantryLocationId String
+  invitedEmail     String
+  invitedByUserId  String
+  permission       PantryPermission @default(VIEW)
+  invitationToken  String           @unique
+  status           InvitationStatus @default(PENDING)
+  message          String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  expiresAt        DateTime
+
+  pantryLocation PantryLocation @relation(fields: [pantryLocationId], references: [id], onDelete: Cascade)
+  invitedByUser  User           @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([invitedEmail])
+  @@index([pantryLocationId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("pantry_invitations")
+}
+
+model PantryActivityLog {
+  id               String   @id @default(cuid())
+  pantryLocationId String
+  userId           String
+  action           String
+  itemName         String?
+  itemId           String?
+  oldValue         String?
+  newValue         String?
+  createdAt        DateTime @default(now())
+
+  pantryLocation PantryLocation @relation(fields: [pantryLocationId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Performance indexes
+  @@index([pantryLocationId, createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("pantry_activity_logs")
+}
+
+// AI Models
+model AIConversation {
+  id        String    @id @default(cuid())
+  userId    String
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  isActive  Boolean   @default(true)
+  metadata  Json?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AIMessage[]
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  role           String // 'user', 'assistant', 'system'
+  content        String
+  intent         String?
+  entities       Json?
+  confidence     Float?
+  tokens         Int?
+  timestamp      DateTime       @default(now())
+  metadata       Json?
+
+  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  commands     AICommand[]
+
+  @@index([conversationId])
+  @@index([timestamp])
+  @@map("ai_messages")
+}
+
+model AICommand {
+  id            String    @id @default(cuid())
+  userId        String
+  messageId     String?
+  command       String
+  intent        String
+  parameters    Json?
+  result        Json?
+  success       Boolean   @default(false)
+  executedAt    DateTime  @default(now())
+  executionTime Int? // in milliseconds
+  error         String?
+
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message AIMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([executedAt])
+  @@index([intent])
+  @@map("ai_commands")
+}
+
+model AIImageAnalysis {
+  id            String   @id @default(cuid())
+  userId        String
+  imageUrl      String
+  analysisType  String // 'pantry', 'grocery', 'leftovers'
+  detectedItems Json
+  confidence    Float?
+  processedAt   DateTime @default(now())
+  metadata      Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([processedAt])
+  @@map("ai_image_analyses")
+}
+
+model AIRecipeSuggestion {
+  id                 String   @id @default(cuid())
+  userId             String
+  recipeId           String?
+  suggestedName      String
+  reason             String
+  matchPercentage    Float
+  missingIngredients Json?
+  substituteOptions  Json?
+  score              Float?
+  selected           Boolean  @default(false)
+  feedback           String? // 'liked', 'disliked', 'cooked'
+  suggestedAt        DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipe Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([suggestedAt])
+  @@map("ai_recipe_suggestions")
+}
+
+model AIUserPreference {
+  id             String   @id @default(cuid())
+  userId         String
+  preferenceType String // 'communication_style', 'response_length', etc.
+  value          String
+  confidence     Float?
+  learnedFrom    Json? // track how we learned this preference
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([preferenceType])
+  @@map("ai_user_preferences")
+}
+
+model AIUsageAnalytics {
+  id           String   @id @default(cuid())
+  userId       String
+  feature      String // 'chat', 'vision', 'voice', 'suggestions'
+  action       String
+  tokensUsed   Int?
+  cost         Float?
+  responseTime Int? // in milliseconds
+  success      Boolean  @default(true)
+  error        String?
+  timestamp    DateTime @default(now())
+  metadata     Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([feature])
+  @@index([timestamp])
+  @@map("ai_usage_analytics")
+}
+
+model AIContextCache {
+  id          String    @id @default(cuid())
+  userId      String
+  contextType String // 'session', 'history', 'preferences'
+  data        Json
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("ai_context_cache")
+}

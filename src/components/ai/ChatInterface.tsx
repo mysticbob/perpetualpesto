@@ -353,7 +353,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         <Box
                           as={motion.div}
                           animate={{ opacity: [0.4, 1, 0.4] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
+                          transition={{ duration: 1.5, repeat: Infinity } as any}
                           w={2}
                           h={2}
                           bg="gray.500"
@@ -362,7 +362,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         <Box
                           as={motion.div}
                           animate={{ opacity: [0.4, 1, 0.4] }}
-                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 } as any}
                           w={2}
                           h={2}
                           bg="gray.500"
@@ -371,7 +371,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         <Box
                           as={motion.div}
                           animate={{ opacity: [0.4, 1, 0.4] }}
-                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: 0.4 } as any}
                           w={2}
                           h={2}
                           bg="gray.500"

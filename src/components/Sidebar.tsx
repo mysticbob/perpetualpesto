@@ -36,28 +36,34 @@ interface SidebarProps {
 
 const navigationItems = [
   {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: HamburgerIcon,
+    description: 'Overview and quick stats'
+  },
+  {
+    id: 'meals',
+    label: 'Meal Planning',
+    icon: CalendarIcon,
+    description: 'AI-powered meal planning'
+  },
+  {
+    id: 'pantry-manager',
+    label: 'Pantry Manager',
+    icon: PantryIcon,
+    description: 'Track inventory & expiration'
+  },
+  {
+    id: 'shopping',
+    label: 'Shopping List',
+    icon: GroceryIcon,
+    description: 'Smart shopping lists'
+  },
+  {
     id: 'list',
     label: 'Recipes',
     icon: RecipeIcon,
     description: 'Browse your recipe collection'
-  },
-  {
-    id: 'calendar',
-    label: 'Calendar',
-    icon: CalendarIcon,
-    description: 'Plan your meals'
-  },
-  {
-    id: 'pantry',
-    label: 'Pantry',
-    icon: PantryIcon,
-    description: 'Track what you have at home'
-  },
-  {
-    id: 'grocery',
-    label: 'Groceries',
-    icon: GroceryIcon,
-    description: 'Shopping lists'
   },
   {
     id: 'stores',

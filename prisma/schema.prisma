@@ -1,3 +1,6 @@
+// MVP Schema for NoChickenLeftBehind
+// Focused on: Expiration tracking, Smart recipes, Meal planning
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,183 +10,335 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============ CORE MODELS ============
+
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  preferences    UserPreferences?
-  userRecipes    UserRecipe[]
-  recipeRatings  RecipeRating[]
-  pantryLocations PantryLocation[]
-  pantryItems    PantryItem[]
-  groceryItems   GroceryItem[]
-  depletedItems  DepletedItem[]
-  mealPlans      MealPlan[]
-  userStores     UserStore[]
-  pantryShares   PantryShare[]
-  sharedByShares PantryShare[] @relation("SharedByUser")
-  pantryInvitations PantryInvitation[]
-  activityLogs   PantryActivityLog[]
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   
-  // AI Relations
-  aiConversations   AIConversation[]
-  aiCommands        AICommand[]
-  aiImageAnalyses   AIImageAnalysis[]
-  aiRecipeSuggestions AIRecipeSuggestion[]
-  aiUserPreferences AIUserPreference[]
-  aiUsageAnalytics  AIUsageAnalytics[]
-  aiContextCache    AIContextCache[]
-
-  // Performance indexes
-  @@index([email])
-  @@map("users")
+  // Billing & Subscription
+  stripeCustomerId String?   @unique
+  subscription     Subscription?
+  
+  // Relationships
+  recipes       Recipe[]
+  pantryItems   PantryItem[]
+  mealPlans     MealPlan[]
+  preferences   UserPreferences?
+  groceryItems  GroceryItem[]
 }
 
-model UserPreferences {
-  id                    String   @id @default(cuid())
-  userId                String   @unique
-  unitSystem            String   @default("metric")
-  themeMode             String   @default("system")
-  language              String   @default("en")
-  timezone              String   @default("UTC")
-  expirationWarningDays Int      @default(3)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("user_preferences")
-}
-
-model Recipe {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  prepTime    Int?     // minutes
-  cookTime    Int?     // minutes
-  totalTime   Int?     // minutes
-  servings    Int?
-  difficulty  String?
-  imageUrl    String?
-  sourceUrl   String?
-  createdBy   String?  // User ID who originally created/imported this recipe
-  isPublic    Boolean  @default(true) // If false, only visible to createdBy user
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  ingredients  Ingredient[]
-  instructions Instruction[]
-  userRecipes  UserRecipe[]
-  ratings      RecipeRating[]
-  mealPlans    MealPlan[]
-  aiSuggestions AIRecipeSuggestion[]
-
-  // Performance indexes
-  @@index([name]) // For recipe name searches
-  @@index([totalTime]) // For filtering by cooking time
-  @@index([createdBy]) // For user's created recipes
-  @@index([isPublic]) // For public recipe searches
-  @@map("recipes")
-}
-
-model UserRecipe {
-  id             String    @id @default(cuid())
-  userId         String
-  recipeId       String
-  customServings Int?      // User's preferred serving size for this recipe
-  customNotes    String?   // User's personal notes about this recipe
-  isFavorite     Boolean   @default(false)
-  timesCooked    Int       @default(0)
-  lastCookedAt   DateTime?
-  addedAt        DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@unique([userId, recipeId])
-  @@index([userId, addedAt(sort: Desc)]) // For user's recipes sorted by newest
-  @@index([userId, isFavorite]) // For user's favorite recipes
-  @@index([userId, timesCooked(sort: Desc)]) // For user's most cooked recipes
-  @@map("user_recipes")
-}
+// ============ INGREDIENT MASTER DATA ============
 
 model Ingredient {
-  id       String @id @default(cuid())
-  recipeId String
-  name     String
-  amount   String?
-  unit     String?
-  order    Int
-
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@index([recipeId, order]) // For ordered ingredient queries
-  @@index([name]) // For ingredient name searches
-  @@map("ingredients")
+  id               String   @id @default(cuid())
+  name             String   @unique
+  alternativeNames String[] // Different names for same ingredient
+  category         String   // protein, vegetable, dairy, grain, etc.
+  
+  // Nutritional Information (per 100g) - from USDA
+  calories         Float?
+  protein          Float?
+  carbs            Float?
+  fat              Float?
+  fiber            Float?
+  
+  // Storage & Expiration (in days)
+  shelfLifeCounter Int?     @default(7)    // Room temperature
+  shelfLifeFridge  Int?     @default(14)   // Refrigerated
+  shelfLifeFreezer Int?     @default(180)  // Frozen
+  
+  // Common units and conversions
+  defaultUnit      String?  @default("g")
+  gramsPerCup      Float?   // For volume to weight conversion
+  gramsPerUnit     Float?   // For items like "1 egg" = 50g
+  
+  // USDA Database Reference
+  usdaFoodId       String?  @unique
+  
+  // Relationships
+  pantryItems      PantryItem[]
+  recipeIngredients RecipeIngredient[]
+  shoppingItems    ShoppingItem[]
+  substitutions    IngredientSubstitution[] @relation("OriginalIngredient")
+  substitutableFor IngredientSubstitution[] @relation("SubstituteIngredient")
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([name])
+  @@index([category])
 }
 
-model Instruction {
-  id       String @id @default(cuid())
-  recipeId String
-  step     String
-  order    Int
-
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@index([recipeId, order]) // For ordered instruction queries
-  @@map("instructions")
+model IngredientSubstitution {
+  id              String     @id @default(cuid())
+  originalId      String
+  substituteId    String
+  ratio           Float      @default(1.0) // 1.0 = 1:1 substitution
+  notes           String?    // "may affect texture", "adds sweetness", etc.
+  
+  original        Ingredient @relation("OriginalIngredient", fields: [originalId], references: [id])
+  substitute      Ingredient @relation("SubstituteIngredient", fields: [substituteId], references: [id])
+  
+  @@unique([originalId, substituteId])
 }
 
-model PantryLocation {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items PantryItem[]
-  shares PantryShare[]
-  invitations PantryInvitation[]
-  activityLogs PantryActivityLog[]
-
-  // Performance indexes
-  @@index([userId, order]) // For ordered pantry locations
-  @@map("pantry_locations")
-}
+// ============ PANTRY MANAGEMENT ============
 
 model PantryItem {
-  id             String    @id @default(cuid())
-  userId         String
-  locationId     String
-  name           String
-  amount         String
-  unit           String
-  category       String?
-  expirationDate DateTime?
-  addedDate      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  location PantryLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@index([userId, locationId]) // For user's items in specific location
-  @@index([userId, expirationDate]) // For expiration tracking
-  @@index([userId, addedDate(sort: Desc)]) // For recently added items
-  @@index([name]) // For ingredient searches
-  @@map("pantry_items")
+  id              String    @id @default(cuid())
+  userId          String
+  ingredientId    String?
+  customName      String    // What user calls it
+  
+  // Quantity
+  amount          Float
+  unit            String
+  
+  // Location & Storage
+  location        PantryLocation @default(PANTRY)
+  container       String?   // "tupperware", "ziploc", etc.
+  
+  // Dates
+  purchaseDate    DateTime  @default(now())
+  expirationDate  DateTime? // Calculated or manually set
+  openedDate      DateTime? // When opened (affects expiration)
+  
+  // Leftover tracking
+  isLeftover      Boolean   @default(false)
+  leftoverFromId  String?   // Recipe ID if leftover
+  leftoverDate    DateTime? // When leftover was created
+  
+  // Cost tracking
+  purchasePrice   Float?
+  
+  // Relationships
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredient      Ingredient? @relation(fields: [ingredientId], references: [id])
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId, expirationDate])
+  @@index([userId, location])
+  @@index([userId, isLeftover])
 }
+
+enum PantryLocation {
+  FRIDGE
+  FREEZER
+  PANTRY
+  COUNTER
+  SPICE_RACK
+}
+
+// ============ RECIPES ============
+
+model Recipe {
+  id              String   @id @default(cuid())
+  userId          String?
+  name            String
+  description     String?
+  
+  // Time (in minutes)
+  prepTime        Int?
+  cookTime        Int?
+  totalTime       Int?
+  
+  // Metadata
+  servings        Int      @default(4)
+  difficulty      RecipeDifficulty @default(MEDIUM)
+  mealType        String[] // ["breakfast", "lunch", "dinner", "snack"]
+  cuisine         String?
+  imageUrl        String?
+  sourceUrl       String?
+  
+  // Nutritional rollup (per serving, calculated)
+  caloriesPerServing Float?
+  proteinPerServing  Float?
+  carbsPerServing    Float?
+  fatPerServing      Float?
+  
+  // Planning hints
+  goodForLeftovers   Boolean @default(true)
+  leftoverDays       Int?    @default(3)
+  freezable          Boolean @default(false)
+  
+  // Relationships
+  user            User?     @relation(fields: [userId], references: [id])
+  ingredients     RecipeIngredient[]
+  instructions    RecipeInstruction[]
+  plannedMeals    PlannedMeal[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([name])
+}
+
+enum RecipeDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model RecipeIngredient {
+  id           String     @id @default(cuid())
+  recipeId     String
+  ingredientId String?
+  
+  // What the recipe calls for
+  amount       Float?
+  unit         String?
+  preparation  String?    // "diced", "minced", etc.
+  optional     Boolean    @default(false)
+  groupName    String?    // "For the sauce", "For the marinade"
+  
+  // Original text (for display)
+  originalText String
+  
+  // Relationships
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient? @relation(fields: [ingredientId], references: [id])
+  
+  @@index([recipeId])
+}
+
+model RecipeInstruction {
+  id          String  @id @default(cuid())
+  recipeId    String
+  stepNumber  Int
+  instruction String
+  timeMinutes Int?    // Optional time for this step
+  
+  recipe      Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  
+  @@unique([recipeId, stepNumber])
+}
+
+// ============ MEAL PLANNING ============
+
+model MealPlan {
+  id            String   @id @default(cuid())
+  userId        String
+  weekStartDate DateTime
+  status        MealPlanStatus @default(DRAFT)
+  
+  // AI Generation metadata
+  generatedBy   String?  // "claude", "manual", "gpt4"
+  constraints   Json?    // User constraints for this plan
+  
+  // Relationships
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meals         PlannedMeal[]
+  shoppingList  ShoppingList?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([userId, weekStartDate])
+  @@index([userId, status])
+}
+
+enum MealPlanStatus {
+  DRAFT
+  APPROVED
+  ACTIVE
+  COMPLETED
+}
+
+model PlannedMeal {
+  id            String   @id @default(cuid())
+  mealPlanId    String
+  recipeId      String?
+  
+  // Scheduling
+  date          DateTime
+  mealType      MealType
+  
+  // Portions
+  servings      Int      @default(2)
+  
+  // Execution
+  isCooked      Boolean  @default(false)
+  cookedAt      DateTime?
+  skipped       Boolean  @default(false)
+  
+  // For eating out or simple meals
+  isEatingOut   Boolean  @default(false)
+  restaurantName String?
+  simpleMealName String?  // "Cereal", "Sandwiches", etc.
+  
+  // Leftover planning
+  expectLeftovers Boolean @default(false)
+  leftoverServings Int?
+  
+  // Relationships
+  mealPlan      MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  recipe        Recipe?  @relation(fields: [recipeId], references: [id])
+  
+  @@index([mealPlanId, date])
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+// ============ SHOPPING ============
+
+model ShoppingList {
+  id           String   @id @default(cuid())
+  mealPlanId   String?  @unique
+  userId       String
+  
+  status       ShoppingStatus @default(PENDING)
+  scheduledFor DateTime?
+  
+  // Relationships
+  mealPlan     MealPlan? @relation(fields: [mealPlanId], references: [id])
+  items        ShoppingItem[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum ShoppingStatus {
+  PENDING
+  SHOPPING
+  COMPLETED
+}
+
+model ShoppingItem {
+  id             String       @id @default(cuid())
+  shoppingListId String
+  ingredientId   String?
+  
+  name           String
+  amount         Float?
+  unit           String?
+  category       String?      // For store organization
+  
+  // Status
+  purchased      Boolean      @default(false)
+  price          Float?
+  
+  // Smart reordering
+  isStaple       Boolean      @default(false)
+  
+  shoppingList   ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  ingredient     Ingredient?  @relation(fields: [ingredientId], references: [id])
+  
+  @@index([shoppingListId])
+}
+
+// ============ SIMPLE GROCERY (existing) ============
 
 model GroceryItem {
   id        String   @id @default(cuid())
@@ -195,325 +350,125 @@ model GroceryItem {
   completed Boolean  @default(false)
   addedDate DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@index([userId, completed]) // For filtering completed/pending items
-  @@index([userId, addedDate(sort: Desc)]) // For recently added items
-  @@map("grocery_items")
-}
-
-model DepletedItem {
-  id               String   @id @default(cuid())
-  userId           String
-  name             String
-  lastAmount       String
-  unit             String
-  category         String?
-  depletedDate     DateTime @default(now())
-  timesUsed        Int      @default(1)
-  isFrequentlyUsed Boolean  @default(false)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@index([userId, depletedDate(sort: Desc)]) // For recently depleted items
-  @@index([userId, timesUsed(sort: Desc)]) // For frequently used items
-  @@map("depleted_items")
-}
-
-model MealPlan {
-  id        String   @id @default(cuid())
-  userId    String
-  recipeId  String
-  date      DateTime
-  mealType  String   // breakfast, lunch, dinner, snack
-  servings  Int?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@index([userId, date]) // For user's meal plans by date
-  @@index([userId, mealType]) // For filtering by meal type
-  @@map("meal_plans")
-}
-
-model RecipeRating {
-  id        String   @id @default(cuid())
-  userId    String
-  recipeId  String
-  rating    Int      // 1-5 stars
-  review    String?  // Optional text review
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@unique([userId, recipeId]) // One rating per user per recipe
-  @@index([recipeId, rating]) // For recipe rating aggregation
-  @@index([userId, rating(sort: Desc)]) // For user's highest rated recipes
-  @@map("recipe_ratings")
-}
-
-model UserStore {
-  id           String   @id @default(cuid())
-  userId       String
-  name         String
-  storeType    String   // delivery, pickup, subscription, specialty
-  website      String?
-  logoUrl      String?
-  isEnabled    Boolean  @default(true)
-  deliveryTime String?
-  minOrder     String?
-  deliveryFee  String?
-  order        Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@index([userId, isEnabled]) // For enabled stores
-  @@index([userId, order]) // For ordered stores
-  @@map("user_stores")
-}
-
-enum PantryPermission {
-  VIEW
-  EDIT
-  MANAGE
-}
-
-enum InvitationStatus {
-  PENDING
-  ACCEPTED
-  DECLINED
-  EXPIRED
-}
-
-model PantryShare {
-  id               String           @id @default(cuid())
-  pantryLocationId String
-  userId           String
-  sharedByUserId   String
-  permission       PantryPermission @default(VIEW)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  expiresAt        DateTime?
-
-  pantryLocation PantryLocation @relation(fields: [pantryLocationId], references: [id], onDelete: Cascade)
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sharedByUser   User           @relation("SharedByUser", fields: [sharedByUserId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@unique([pantryLocationId, userId])
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
   @@index([userId])
-  @@index([pantryLocationId])
-  @@index([sharedByUserId])
-  @@map("pantry_shares")
 }
 
-model PantryInvitation {
-  id               String           @id @default(cuid())
-  pantryLocationId String
-  invitedEmail     String
-  invitedByUserId  String
-  permission       PantryPermission @default(VIEW)
-  invitationToken  String           @unique
-  status           InvitationStatus @default(PENDING)
-  message          String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  expiresAt        DateTime
+// ============ USER PREFERENCES ============
 
-  pantryLocation PantryLocation @relation(fields: [pantryLocationId], references: [id], onDelete: Cascade)
-  invitedByUser  User           @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@index([invitedEmail])
-  @@index([pantryLocationId])
-  @@index([status])
-  @@index([expiresAt])
-  @@map("pantry_invitations")
+model UserPreferences {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  
+  // Dietary
+  dietaryRestrictions String[] // ["vegetarian", "gluten-free"]
+  allergies           String[]
+  dislikedIngredients String[]
+  
+  // Cooking
+  maxCookTimeMinutes  Int      @default(45)
+  preferredCuisines   String[]
+  skillLevel          String   @default("intermediate")
+  
+  // Planning
+  planningMode        String   @default("assisted") // "assisted", "yolo", "manual"
+  servingsPerMeal     Int      @default(2)
+  includeLefotvers    Boolean  @default(true)
+  
+  // Shopping
+  weeklyBudget        Float?
+  preferredStores     String[]
+  
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
-model PantryActivityLog {
-  id               String   @id @default(cuid())
-  pantryLocationId String
-  userId           String
-  action           String
-  itemName         String?
-  itemId           String?
-  oldValue         String?
-  newValue         String?
-  createdAt        DateTime @default(now())
+// ============ BILLING & SUBSCRIPTIONS ============
 
-  pantryLocation PantryLocation @relation(fields: [pantryLocationId], references: [id], onDelete: Cascade)
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Performance indexes
-  @@index([pantryLocationId, createdAt(sort: Desc)])
-  @@index([userId])
-  @@map("pantry_activity_logs")
+model Subscription {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  
+  // Stripe IDs
+  stripeSubscriptionId String?  @unique
+  stripePriceId        String?
+  
+  // Plan Details
+  plan                 SubscriptionPlan
+  status               SubscriptionStatus @default(ACTIVE)
+  
+  // Billing
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean  @default(false)
+  
+  // Family Plan Add-ons
+  additionalSeats      Int      @default(0) // Extra family members beyond base 4
+  
+  // Usage Limits (cached for quick access)
+  maxRecipes           Int
+  maxPantryItems       Int
+  maxMealPlans         Int
+  hasAiMealPlanning    Boolean
+  hasGroceryIntegration Boolean
+  
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
-// AI Models
-model AIConversation {
-  id        String    @id @default(cuid())
-  userId    String
-  startedAt DateTime  @default(now())
-  endedAt   DateTime?
-  isActive  Boolean   @default(true)
-  metadata  Json?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages AIMessage[]
-
-  @@index([userId])
-  @@index([isActive])
-  @@map("ai_conversations")
+enum SubscriptionPlan {
+  FREE
+  SMALL    // $5/month
+  FAMILY   // $10/month + $1/additional user
 }
 
-model AIMessage {
-  id             String         @id @default(cuid())
-  conversationId String
-  role           String // 'user', 'assistant', 'system'
-  content        String
-  intent         String?
-  entities       Json?
-  confidence     Float?
-  tokens         Int?
-  timestamp      DateTime       @default(now())
-  metadata       Json?
-
-  conversation AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  commands     AICommand[]
-
-  @@index([conversationId])
-  @@index([timestamp])
-  @@map("ai_messages")
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  TRIALING
 }
 
-model AICommand {
-  id            String    @id @default(cuid())
-  userId        String
-  messageId     String?
-  command       String
-  intent        String
-  parameters    Json?
-  result        Json?
-  success       Boolean   @default(false)
-  executedAt    DateTime  @default(now())
-  executionTime Int? // in milliseconds
-  error         String?
-
-  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  message AIMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([executedAt])
-  @@index([intent])
-  @@map("ai_commands")
+model PaymentMethod {
+  id                String   @id @default(cuid())
+  userId            String
+  
+  // Stripe Payment Method
+  stripePaymentMethodId String @unique
+  type              String   // "card", etc.
+  last4             String?
+  brand             String?  // "visa", "mastercard", etc.
+  expiryMonth       Int?
+  expiryYear        Int?
+  isDefault         Boolean  @default(false)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
-model AIImageAnalysis {
-  id            String   @id @default(cuid())
-  userId        String
-  imageUrl      String
-  analysisType  String // 'pantry', 'grocery', 'leftovers'
-  detectedItems Json
-  confidence    Float?
-  processedAt   DateTime @default(now())
-  metadata      Json?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([processedAt])
-  @@map("ai_image_analyses")
-}
-
-model AIRecipeSuggestion {
-  id                 String   @id @default(cuid())
-  userId             String
-  recipeId           String?
-  suggestedName      String
-  reason             String
-  matchPercentage    Float
-  missingIngredients Json?
-  substituteOptions  Json?
-  score              Float?
-  selected           Boolean  @default(false)
-  feedback           String? // 'liked', 'disliked', 'cooked'
-  suggestedAt        DateTime @default(now())
-
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  recipe Recipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
-
-  @@index([userId])
-  @@index([suggestedAt])
-  @@map("ai_recipe_suggestions")
-}
-
-model AIUserPreference {
-  id             String   @id @default(cuid())
-  userId         String
-  preferenceType String // 'communication_style', 'response_length', etc.
-  value          String
-  confidence     Float?
-  learnedFrom    Json? // track how we learned this preference
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([preferenceType])
-  @@map("ai_user_preferences")
-}
-
-model AIUsageAnalytics {
-  id           String   @id @default(cuid())
-  userId       String
-  feature      String // 'chat', 'vision', 'voice', 'suggestions'
-  action       String
-  tokensUsed   Int?
-  cost         Float?
-  responseTime Int? // in milliseconds
-  success      Boolean  @default(true)
-  error        String?
-  timestamp    DateTime @default(now())
-  metadata     Json?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([feature])
-  @@index([timestamp])
-  @@map("ai_usage_analytics")
-}
-
-model AIContextCache {
-  id          String    @id @default(cuid())
-  userId      String
-  contextType String // 'session', 'history', 'preferences'
-  data        Json
-  expiresAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("ai_context_cache")
+model BillingEvent {
+  id                String   @id @default(cuid())
+  userId            String
+  
+  // Event Details
+  type              String   // "subscription.created", "payment.succeeded", etc.
+  stripeEventId     String?  @unique
+  amount            Float?
+  currency          String?
+  description       String?
+  
+  // Status
+  status            String   // "succeeded", "failed", "pending"
+  errorMessage      String?
+  
+  metadata          Json?    // Store any additional Stripe data
+  
+  createdAt         DateTime @default(now())
 }

@@ -33,10 +33,12 @@ import {
 import { useState, useEffect } from 'react'
 import { ChevronLeftIcon, AddIcon, DeleteIcon, CheckIcon, ExternalLinkIcon } from './icons/CustomIcons'
 import ExportToReminders from './ExportToReminders'
+import InstacartCartReview from './instacart/InstacartCartReview'
 import { usePantry } from '../contexts/PantryContext'
 import { useGrocery, GroceryItem } from '../contexts/GroceryContext'
 import { parseAmount, formatAmount } from '../utils/amountParsing'
 import { calculateExpirationDate } from '../utils/expiration'
+import axios from 'axios'
 
 interface Store {
   id: string
@@ -88,8 +90,11 @@ export default function GroceryList({ onBack }: GroceryListProps) {
   const [newItem, setNewItem] = useState<Partial<GroceryItem>>({})
   const [selectedItemsForPurchase, setSelectedItemsForPurchase] = useState<Set<string>>(new Set())
   const [selectedStore, setSelectedStore] = useState<Store | null>(null)
+  const [instacartConnected, setInstacartConnected] = useState(false)
+  const [userId, setUserId] = useState<string>('user_1') // TODO: Get from auth context
   const { isOpen: isAddOpen, onOpen: onAddOpen, onClose: onAddClose } = useDisclosure()
   const { isOpen: isFulfillOpen, onOpen: onFulfillOpen, onClose: onFulfillClose } = useDisclosure()
+  const { isOpen: isInstacartOpen, onOpen: onInstacartOpen, onClose: onInstacartClose } = useDisclosure()
   const { pantryData, setPantryData } = usePantry()
   
   const bgColor = useColorModeValue('#ffffff', 'gray.900')
@@ -370,6 +375,30 @@ export default function GroceryList({ onBack }: GroceryListProps) {
     onFulfillClose()
   }
 
+  // Check Instacart connection status on mount
+  useEffect(() => {
+    checkInstacartStatus()
+  }, [])
+
+  const checkInstacartStatus = async () => {
+    try {
+      const response = await axios.get('/api/instacart/auth/status', {
+        params: { userId }
+      })
+      setInstacartConnected(response.data.isConnected)
+    } catch (error) {
+      console.error('Error checking Instacart status:', error)
+    }
+  }
+
+  const handleInstacartSubmit = () => {
+    // Get selected items for Instacart
+    const itemsForInstacart = pendingItems.filter(item => 
+      selectedItemsForPurchase.size === 0 || selectedItemsForPurchase.has(item.id)
+    )
+    onInstacartOpen()
+  }
+
   // Removed auto-consolidation to prevent random resets
   // Users can manually consolidate using the Consolidate button
 
@@ -410,15 +439,36 @@ export default function GroceryList({ onBack }: GroceryListProps) {
                 >
                   Consolidate
                 </Button>
-                {pendingItems.length > 0 && activeStores.length > 0 && (
-                  <Button
-                    size="md"
-                    style={{ backgroundColor: brandColor, color: 'white' }}
-                    _hover={{ backgroundColor: '#2da89c' }}
-                    onClick={openFulfillment}
-                  >
-                    🛒 Buy Groceries
-                  </Button>
+                {pendingItems.length > 0 && (
+                  <>
+                    {instacartConnected ? (
+                      <Button
+                        size="md"
+                        style={{ backgroundColor: '#43B02A', color: 'white' }}
+                        _hover={{ backgroundColor: '#3a9924' }}
+                        onClick={handleInstacartSubmit}
+                        leftIcon={
+                          <Image 
+                            src="https://www.instacart.com/assets/beetstrap/brand/2022/carrot-logo.svg" 
+                            h="16px" 
+                          />
+                        }
+                      >
+                        Send to Instacart
+                      </Button>
+                    ) : (
+                      activeStores.length > 0 && (
+                        <Button
+                          size="md"
+                          style={{ backgroundColor: brandColor, color: 'white' }}
+                          _hover={{ backgroundColor: '#2da89c' }}
+                          onClick={openFulfillment}
+                        >
+                          🛒 Buy Groceries
+                        </Button>
+                      )
+                    )}
+                  </>
                 )}
                 <ExportToReminders 
                   items={groceryItems}
@@ -818,6 +868,17 @@ export default function GroceryList({ onBack }: GroceryListProps) {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Instacart Cart Review Modal */}
+      <InstacartCartReview
+        isOpen={isInstacartOpen}
+        onClose={onInstacartClose}
+        userId={userId}
+        groceryItems={pendingItems}
+        onCartSubmitted={(orderId) => {
+          console.log('Instacart order created:', orderId)
+        }}
+      />
     </Box>
   )
 }

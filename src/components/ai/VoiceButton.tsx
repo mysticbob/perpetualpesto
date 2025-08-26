@@ -8,8 +8,8 @@ import {
   useColorModeValue,
   Tooltip,
   Badge,
-  keyframes,
 } from '@chakra-ui/react';
+import { keyframes } from '@emotion/react';
 import { FaMicrophone, FaMicrophoneSlash, FaVolumeUp, FaVolumeMute } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
@@ -204,7 +204,7 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({
                 duration: 2,
                 repeat: Infinity,
                 ease: 'easeInOut',
-              }}
+              } as any}
               w="60px"
               h="60px"
               borderRadius="full"

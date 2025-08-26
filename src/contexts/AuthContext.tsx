@@ -1,18 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { 
-  User,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile,
-  GoogleAuthProvider,
-  signInWithPopup
-} from 'firebase/auth'
-import { auth } from '../config/firebase'
 
 interface AuthContextType {
-  currentUser: User | null
+  currentUser: any | null
   login: (email: string, password: string) => Promise<void>
   signup: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => Promise<void>
@@ -35,57 +24,57 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  // For local development, automatically log in as Bob
+  const [currentUser, setCurrentUser] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
 
   const signup = async (email: string, password: string, displayName: string) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password)
-    if (result.user) {
-      await updateProfile(result.user, { displayName })
-    }
+    // Mock signup
+    setCurrentUser({
+      uid: 'local-user-' + Date.now(),
+      email,
+      displayName
+    })
   }
 
   const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password)
+    // Mock login - accept any credentials for local dev
+    setCurrentUser({
+      uid: 'cmerd586z0000aiocycckrwx8', // Bob's actual user ID from database
+      email,
+      displayName: email.split('@')[0]
+    })
   }
 
   const loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider()
-    await signInWithPopup(auth, provider)
+    // Mock Google login
+    setCurrentUser({
+      uid: 'google-user-' + Date.now(),
+      email: 'user@gmail.com',
+      displayName: 'Google User'
+    })
   }
 
   const logout = async () => {
-    await signOut(auth)
+    setCurrentUser(null)
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setCurrentUser(user)
-      
-      // If user is logged in, ensure they exist in our database
-      if (user) {
-        try {
-          await fetch('http://localhost:3001/api/users', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              id: user.uid,
-              email: user.email,
-              name: user.displayName,
-              avatar: user.photoURL
-            })
-          })
-        } catch (error) {
-          console.error('Failed to sync user with database:', error)
-        }
+    // Auto-login for development
+    const autoLogin = async () => {
+      // Check if we're in development mode
+      if (window.location.hostname === 'localhost') {
+        // Automatically log in as Bob for local development
+        setCurrentUser({
+          uid: 'cmerd586z0000aiocycckrwx8', // Bob's user ID
+          email: 'bobkuehne@gmail.com',
+          displayName: 'Bob Kuehne'
+        })
       }
-      
       setLoading(false)
-    })
-
-    return unsubscribe
+    }
+    
+    autoLogin()
   }, [])
 
   const value: AuthContextType = {
@@ -99,7 +88,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }

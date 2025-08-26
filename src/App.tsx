@@ -9,6 +9,10 @@ import PreferencesPage from './components/PreferencesPage'
 import PantryPage from './components/PantryPage'
 import StoresPage from './components/StoresPage'
 import RecipesPage from './components/RecipesPage'
+import Dashboard from './components/Dashboard'
+import MealPlanning from './components/MealPlanning'
+import PantryManager from './components/PantryManager'
+import SmartShoppingList from './components/SmartShoppingList'
 // import PerformanceMonitor from './components/PerformanceMonitor' // Disabled for now
 import ChatInterface from './components/ai/ChatInterface'
 import { PreferencesProvider } from './contexts/PreferencesContext'
@@ -18,14 +22,19 @@ import { AuthProvider } from './contexts/AuthContext'
 import { GroceryProvider } from './contexts/GroceryContext'
 import { AIProvider } from './contexts/AIContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { ReactQueryProvider } from './lib/react-query'
 
-type ViewType = 'list' | 'extract' | 'calendar' | 'grocery' | 'add' | 'preferences' | 'pantry' | 'stores'
+type ViewType = 'dashboard' | 'list' | 'extract' | 'calendar' | 'grocery' | 'add' | 'preferences' | 'pantry' | 'stores' | 'meals' | 'pantry-manager' | 'shopping'
 
 
 
 function App() {
-  const [view, setView] = useState<ViewType>('list')
+  const [view, setView] = useState<ViewType>('dashboard')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  
+  // Mock user ID - in production this would come from auth context
+  const userId = 'user-123'
 
   const handleGroceries = () => {
     setView('grocery')
@@ -57,6 +66,31 @@ function App() {
 
   const renderCurrentView = () => {
     switch (view) {
+      case 'dashboard':
+        return (
+          <Dashboard 
+            userId={userId}
+            onNavigate={handleNavigate}
+          />
+        )
+      case 'meals':
+        return (
+          <MealPlanning 
+            userId={userId}
+          />
+        )
+      case 'pantry-manager':
+        return (
+          <PantryManager 
+            userId={userId}
+          />
+        )
+      case 'shopping':
+        return (
+          <SmartShoppingList 
+            userId={userId}
+          />
+        )
       case 'calendar':
         return (
           <CalendarView 
@@ -113,44 +147,50 @@ function App() {
   }
 
   return (
-    <AuthProvider>
-      <ProtectedRoute>
-        <PreferencesProvider>
-          <PantryProvider>
-            <GroceryProvider>
-              <AIProvider>
-                <TimerProvider>
-                  <Box display="flex" h="100vh">
-                    <Sidebar 
-                      currentView={getCurrentSidebarView()}
-                      onNavigate={handleNavigate}
-                      isCollapsed={sidebarCollapsed}
-                      onToggleCollapse={toggleSidebar}
-                    />
-                    
-                    <Box 
-                      flex={1} 
-                      ml={sidebarWidth} 
-                      transition="margin-left 0.2s"
-                      overflow="auto"
-                    >
-                      {renderCurrentView()}
+    <ErrorBoundary>
+      <ReactQueryProvider>
+        <AuthProvider>
+          <ProtectedRoute>
+            <PreferencesProvider>
+              <PantryProvider>
+                <GroceryProvider>
+                  <AIProvider>
+                    <TimerProvider>
+                    <Box display="flex" h="100vh">
+                      <Sidebar 
+                        currentView={getCurrentSidebarView()}
+                        onNavigate={handleNavigate}
+                        isCollapsed={sidebarCollapsed}
+                        onToggleCollapse={toggleSidebar}
+                      />
+                      
+                      <Box 
+                        flex={1} 
+                        ml={sidebarWidth} 
+                        transition="margin-left 0.2s"
+                        overflow="auto"
+                      >
+                        <ErrorBoundary>
+                          {renderCurrentView()}
+                        </ErrorBoundary>
+                      </Box>
+                      
+                      <ChatInterface 
+                        position="bottom-right"
+                        onCommand={(cmd) => console.log('Command:', cmd)}
+                      />
+                      
+                      {/* <PerformanceMonitor /> */} {/* Disabled for now */}
                     </Box>
-                    
-                    <ChatInterface 
-                      position="bottom-right"
-                      onCommand={(cmd) => console.log('Command:', cmd)}
-                    />
-                    
-                    {/* <PerformanceMonitor /> */} {/* Disabled for now */}
-                  </Box>
-                </TimerProvider>
-              </AIProvider>
-            </GroceryProvider>
-          </PantryProvider>
-        </PreferencesProvider>
-      </ProtectedRoute>
-    </AuthProvider>
+                    </TimerProvider>
+                  </AIProvider>
+                </GroceryProvider>
+              </PantryProvider>
+            </PreferencesProvider>
+          </ProtectedRoute>
+        </AuthProvider>
+      </ReactQueryProvider>
+    </ErrorBoundary>
   )
 }
 

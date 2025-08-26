@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { generateSampleGroceryData, shouldShowStarterData } from '../utils/starterData'
 import { parseAmount, formatAmount } from '../utils/amountParsing'
 import { useAuth } from './AuthContext'
+import { apiClient } from '../utils/apiClient'
 
 export interface GroceryItem {
   id: string
@@ -53,20 +54,14 @@ export const GroceryProvider = ({ children }: GroceryProviderProps) => {
   // Load user's grocery data from API
   const loadGroceryData = async (userId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/grocery?userId=${userId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setGroceryItems(data.items || [])
-      } else {
-        // If no data found, create default grocery items for new user
-        const defaultItems = generateSampleGroceryData()
-        setGroceryItems(defaultItems)
-        await saveGroceryData(userId, defaultItems)
-      }
+      const data = await apiClient.getGroceryList(userId)
+      setGroceryItems(data.items || [])
     } catch (error) {
       console.error('Failed to load grocery data:', error)
-      // Fallback to sample data
-      setGroceryItems(generateSampleGroceryData())
+      // If no data found, create default grocery items for new user
+      const defaultItems = generateSampleGroceryData()
+      setGroceryItems(defaultItems)
+      await saveGroceryData(userId, defaultItems)
     } finally {
       setLoading(false)
     }
@@ -75,16 +70,7 @@ export const GroceryProvider = ({ children }: GroceryProviderProps) => {
   // Save grocery data to API
   const saveGroceryData = async (userId: string, items: GroceryItem[]) => {
     try {
-      await fetch('http://localhost:3001/api/grocery', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          items
-        })
-      })
+      await apiClient.updateGroceryList(userId, items)
     } catch (error) {
       console.error('Failed to save grocery data:', error)
     }

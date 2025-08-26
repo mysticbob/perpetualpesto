@@ -125,4 +125,5 @@ bun.lockb
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db
+Thumbs.db.env.production
+.env.production.local

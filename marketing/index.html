@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ovie EatIt - Stop Food Waste, Start Saving Money</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Transform your kitchen with Ovie EatIt - the AI-powered app that stops food waste and saves you money. Smart grocery planning, expiration tracking, and meal suggestions.">
+    <meta name="keywords" content="food waste, grocery planning, meal planning, AI recipes, smart kitchen, expiration tracking, grocery list">
+    <meta name="author" content="Ovie">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph Tags -->
+    <meta property="og:title" content="Ovie EatIt - Stop Food Waste, Start Saving Money">
+    <meta property="og:description" content="Transform your kitchen with Ovie EatIt - the AI-powered app that stops food waste and saves you money.">
+    <meta property="og:image" content="/marketing/assets/og-image.jpg">
+    <meta property="og:url" content="https://eatit.ovie.life">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Ovie EatIt">
+    
+    <!-- Twitter Card Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Ovie EatIt - Stop Food Waste, Start Saving Money">
+    <meta name="twitter:description" content="Transform your kitchen with Ovie EatIt - the AI-powered app that stops food waste and saves you money.">
+    <meta name="twitter:image" content="/marketing/assets/twitter-card.jpg">
+    <meta name="twitter:site" content="@ovielife">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/marketing/assets/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/marketing/assets/apple-touch-icon.png">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/marketing/styles.css">
+    
+    <!-- Schema.org JSON-LD -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Ovie EatIt",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "iOS, Android, Web",
+        "offers": [
+            {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD",
+                "name": "Free Plan"
+            },
+            {
+                "@type": "Offer",
+                "price": "5",
+                "priceCurrency": "USD",
+                "name": "Small Plan"
+            },
+            {
+                "@type": "Offer",
+                "price": "10",
+                "priceCurrency": "USD",
+                "name": "Family Plan"
+            }
+        ],
+        "description": "AI-powered app that stops food waste and saves money through smart grocery planning and meal suggestions.",
+        "screenshot": "/marketing/assets/app-screenshot.jpg",
+        "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "reviewCount": "1247"
+        }
+    }
+    </script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav-sticky">
+        <div class="container">
+            <div class="nav-content">
+                <div class="logo">
+                    <img src="/marketing/assets/ovie-logo.svg" alt="Ovie EatIt" class="logo-img">
+                    <span class="logo-text">EatIt</span>
+                </div>
+                <div class="nav-menu">
+                    <a href="#features" class="nav-link">Features</a>
+                    <a href="/marketing/pricing.html" class="nav-link">Pricing</a>
+                    <a href="/marketing/about.html" class="nav-link">About</a>
+                    <a href="#" class="nav-link">Login</a>
+                    <a href="/marketing/signup.html" class="btn btn-primary nav-cta">Start Free Trial</a>
+                </div>
+                <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1 class="hero-title">
+                        Stop Throwing Away
+                        <span class="text-highlight">$1,500</span>
+                        in Food Each Year
+                    </h1>
+                    <p class="hero-subtitle">
+                        Ovie EatIt uses AI to track your food, plan meals around what you have, 
+                        and remind you before anything expires. Save money, reduce waste, eat better.
+                    </p>
+                    <div class="hero-stats">
+                        <div class="stat">
+                            <span class="stat-number">$1,500</span>
+                            <span class="stat-label">Average saved per family</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">40%</span>
+                            <span class="stat-label">Less food waste</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-number">3hrs</span>
+                            <span class="stat-label">Saved weekly on meal planning</span>
+                        </div>
+                    </div>
+                    <div class="hero-cta">
+                        <a href="/marketing/signup.html" class="btn btn-primary btn-large">
+                            Start Your Free Trial
+                        </a>
+                        <p class="cta-subtitle">Free for 14 days. Cancel anytime.</p>
+                    </div>
+                    <div class="trust-badges">
+                        <img src="/marketing/assets/security-badge.svg" alt="256-bit SSL Security">
+                        <img src="/marketing/assets/privacy-badge.svg" alt="GDPR Compliant">
+                        <img src="/marketing/assets/app-store-badge.svg" alt="App Store">
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="phone-mockup">
+                        <img src="/marketing/assets/app-screenshot-1.jpg" alt="EatIt App Screenshot" class="app-screenshot">
+                        <div class="floating-card expiration-alert">
+                            <div class="alert-icon">⚠️</div>
+                            <div class="alert-text">
+                                <strong>Milk expires tomorrow</strong>
+                                <br>Use in: Cereal, Coffee, Smoothie
+                            </div>
+                        </div>
+                        <div class="floating-card recipe-suggestion">
+                            <div class="recipe-icon">🍝</div>
+                            <div class="recipe-text">
+                                <strong>Suggested Recipe</strong>
+                                <br>Pasta with ingredients you have
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Problem Section -->
+    <section class="problem">
+        <div class="container">
+            <div class="problem-content">
+                <h2 class="section-title">The Hidden Cost of Food Waste</h2>
+                <div class="problem-stats">
+                    <div class="problem-stat">
+                        <div class="stat-icon">💰</div>
+                        <h3>$1,500 per year</h3>
+                        <p>Average family throws away this much in expired food</p>
+                    </div>
+                    <div class="problem-stat">
+                        <div class="stat-icon">🗑️</div>
+                        <h3>40% of food</h3>
+                        <p>Goes to waste in American households</p>
+                    </div>
+                    <div class="problem-stat">
+                        <div class="stat-icon">⏰</div>
+                        <h3>5 hours weekly</h3>
+                        <p>Spent on meal planning and grocery shopping</p>
+                    </div>
+                </div>
+                <div class="problem-visual">
+                    <img src="/marketing/assets/food-waste-illustration.svg" alt="Food Waste Problem" class="problem-image">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Solution Section -->
+    <section class="solution">
+        <div class="container">
+            <div class="solution-content">
+                <div class="solution-text">
+                    <h2 class="section-title">Meet Your AI Kitchen Assistant</h2>
+                    <p class="section-subtitle">
+                        EatIt transforms your kitchen into a smart, efficient food management system. 
+                        Our AI learns your eating habits and helps you make the most of every ingredient.
+                    </p>
+                    
+                    <div class="solution-features">
+                        <div class="feature">
+                            <div class="feature-icon">📱</div>
+                            <h3>Smart Tracking</h3>
+                            <p>Scan receipts or take photos. EatIt automatically tracks expiration dates and quantities.</p>
+                        </div>
+                        <div class="feature">
+                            <div class="feature-icon">🎯</div>
+                            <h3>Personalized Alerts</h3>
+                            <p>Get timely reminders before food expires with recipe suggestions using those ingredients.</p>
+                        </div>
+                        <div class="feature">
+                            <div class="feature-icon">🍽️</div>
+                            <h3>AI Meal Planning</h3>
+                            <p>Generate meal plans based on what you have, your preferences, and dietary restrictions.</p>
+                        </div>
+                        <div class="feature">
+                            <div class="feature-icon">🛒</div>
+                            <h3>Smart Shopping</h3>
+                            <p>Generate optimized grocery lists and connect to Instacart for seamless delivery.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="solution-visual">
+                    <div class="app-demo">
+                        <img src="/marketing/assets/app-demo.gif" alt="EatIt App Demo" class="demo-gif">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2 class="section-title center">Everything You Need to Stop Food Waste</h2>
+            <p class="section-subtitle center">
+                EatIt combines powerful AI with intuitive design to make food management effortless.
+            </p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-card-icon">📸</div>
+                    <h3>Receipt & Photo Scanning</h3>
+                    <p>Simply scan your receipt or snap a photo of your groceries. Our AI automatically identifies items and expiration dates.</p>
+                    <div class="feature-preview">
+                        <img src="/marketing/assets/feature-scanning.jpg" alt="Receipt Scanning">
+                    </div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-card-icon">🔔</div>
+                    <h3>Expiration Alerts</h3>
+                    <p>Never let food go bad again. Get smart notifications with recipe suggestions for items about to expire.</p>
+                    <div class="feature-preview">
+                        <img src="/marketing/assets/feature-alerts.jpg" alt="Expiration Alerts">
+                    </div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-card-icon">🤖</div>
+                    <h3>AI Recipe Suggestions</h3>
+                    <p>Get personalized recipe recommendations based on what's in your pantry and your taste preferences.</p>
+                    <div class="feature-preview">
+                        <img src="/marketing/assets/feature-recipes.jpg" alt="AI Recipe Suggestions">
+                    </div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-card-icon">📋</div>
+                    <h3>Smart Grocery Lists</h3>
+                    <p>Automatically generated shopping lists based on your meal plans and current inventory.</p>
+                    <div class="feature-preview">
+                        <img src="/marketing/assets/feature-grocery.jpg" alt="Smart Grocery Lists">
+                    </div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-card-icon">🛒</div>
+                    <h3>Instacart Integration</h3>
+                    <p>One-click grocery delivery with your smart shopping list. Skip the store entirely.</p>
+                    <div class="feature-preview">
+                        <img src="/marketing/assets/feature-instacart.jpg" alt="Instacart Integration">
+                    </div>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-card-icon">👨‍👩‍👧‍👦</div>
+                    <h3>Family Sharing</h3>
+                    <p>Share pantries across family members. Everyone stays updated on what's available at home.</p>
+                    <div class="feature-preview">
+                        <img src="/marketing/assets/feature-sharing.jpg" alt="Family Sharing">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Preview -->
+    <section class="pricing-preview">
+        <div class="container">
+            <h2 class="section-title center">Simple, Transparent Pricing</h2>
+            <p class="section-subtitle center">
+                Start free and upgrade as your needs grow. All plans include a 14-day money-back guarantee.
+            </p>
+            
+            <div class="pricing-cards">
+                <div class="pricing-card">
+                    <div class="plan-header">
+                        <h3 class="plan-name">Free</h3>
+                        <div class="plan-price">
+                            <span class="price">$0</span>
+                            <span class="period">/month</span>
+                        </div>
+                    </div>
+                    <ul class="plan-features">
+                        <li>1 fridge/pantry</li>
+                        <li>Basic expiration tracking</li>
+                        <li>100 recipes</li>
+                        <li>Simple grocery lists</li>
+                    </ul>
+                    <a href="/marketing/signup.html?plan=free" class="btn btn-secondary">Get Started</a>
+                </div>
+                
+                <div class="pricing-card featured">
+                    <div class="plan-badge">Most Popular</div>
+                    <div class="plan-header">
+                        <h3 class="plan-name">Small</h3>
+                        <div class="plan-price">
+                            <span class="price">$5</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <div class="plan-savings">Save $10 with annual billing</div>
+                    </div>
+                    <ul class="plan-features">
+                        <li>Everything in Free</li>
+                        <li>AI meal planning</li>
+                        <li>Unlimited recipes</li>
+                        <li>Instacart integration</li>
+                        <li>Advanced notifications</li>
+                        <li>Recipe nutritional info</li>
+                    </ul>
+                    <a href="/marketing/signup.html?plan=small" class="btn btn-primary">Start Free Trial</a>
+                </div>
+                
+                <div class="pricing-card">
+                    <div class="plan-header">
+                        <h3 class="plan-name">Family</h3>
+                        <div class="plan-price">
+                            <span class="price">$10</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <div class="plan-savings">Save $20 with annual billing</div>
+                    </div>
+                    <ul class="plan-features">
+                        <li>Everything in Small</li>
+                        <li>Multiple homes</li>
+                        <li>Up to 5 family members</li>
+                        <li>Shared meal planning</li>
+                        <li>Family calendar integration</li>
+                        <li>Priority support</li>
+                    </ul>
+                    <a href="/marketing/signup.html?plan=family" class="btn btn-secondary">Start Free Trial</a>
+                </div>
+            </div>
+            
+            <div class="pricing-footer">
+                <p>Need more family members? Add additional users for just $1/month each.</p>
+                <a href="/marketing/pricing.html" class="link-primary">View detailed pricing comparison →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials -->
+    <section class="testimonials">
+        <div class="container">
+            <h2 class="section-title center">Loved by Families Everywhere</h2>
+            
+            <div class="testimonials-grid">
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">⭐⭐⭐⭐⭐</div>
+                    <p class="testimonial-text">
+                        "EatIt saved our family over $200 in the first month alone. The AI suggestions 
+                        are spot-on and my kids actually eat the meals it recommends!"
+                    </p>
+                    <div class="testimonial-author">
+                        <img src="/marketing/assets/testimonial-1.jpg" alt="Sarah M." class="author-avatar">
+                        <div class="author-info">
+                            <strong>Sarah M.</strong>
+                            <span>Mom of 3, San Francisco</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">⭐⭐⭐⭐⭐</div>
+                    <p class="testimonial-text">
+                        "I was skeptical about another food app, but EatIt actually works. 
+                        The Instacart integration is seamless and the expiration alerts are lifesavers."
+                    </p>
+                    <div class="testimonial-author">
+                        <img src="/marketing/assets/testimonial-2.jpg" alt="Mike R." class="author-avatar">
+                        <div class="author-info">
+                            <strong>Mike R.</strong>
+                            <span>Busy professional, Austin</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="testimonial-card">
+                    <div class="testimonial-stars">⭐⭐⭐⭐⭐</div>
+                    <p class="testimonial-text">
+                        "Finally, an app that understands our dietary restrictions and still makes 
+                        delicious meal suggestions. Our food waste has dropped to almost zero."
+                    </p>
+                    <div class="testimonial-author">
+                        <img src="/marketing/assets/testimonial-3.jpg" alt="Jennifer L." class="author-avatar">
+                        <div class="author-info">
+                            <strong>Jennifer L.</strong>
+                            <span>Health-conscious family, Seattle</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="testimonial-stats">
+                <div class="stat">
+                    <span class="stat-number">4.8/5</span>
+                    <span class="stat-label">App Store Rating</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">50K+</span>
+                    <span class="stat-label">Happy Families</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-number">$2.5M</span>
+                    <span class="stat-label">Food Waste Prevented</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="final-cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2 class="cta-title">Ready to Stop Wasting Food and Money?</h2>
+                <p class="cta-subtitle">
+                    Join thousands of families already saving with EatIt. 
+                    Start your free trial today and see the difference AI can make in your kitchen.
+                </p>
+                
+                <div class="cta-offer">
+                    <div class="offer-badge">Limited Time Offer</div>
+                    <div class="offer-details">
+                        <strong>Get 30% off your first year</strong>
+                        <br>Use code SAVE30 at checkout
+                    </div>
+                </div>
+                
+                <div class="cta-buttons">
+                    <a href="/marketing/signup.html" class="btn btn-primary btn-large">
+                        Start Your Free Trial
+                    </a>
+                    <a href="/marketing/features.html" class="btn btn-secondary btn-large">
+                        Learn More
+                    </a>
+                </div>
+                
+                <div class="cta-guarantee">
+                    <div class="guarantee-icon">🛡️</div>
+                    <p>14-day money-back guarantee • Cancel anytime • No hidden fees</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Newsletter Signup -->
+    <section class="newsletter">
+        <div class="container">
+            <div class="newsletter-content">
+                <h3>Get Money-Saving Tips Delivered Weekly</h3>
+                <p>Join our newsletter for exclusive recipes, food storage tips, and money-saving hacks.</p>
+                <form class="newsletter-form" id="newsletterForm">
+                    <input type="email" placeholder="Enter your email" required>
+                    <button type="submit" class="btn btn-primary">Subscribe</button>
+                </form>
+                <p class="newsletter-disclaimer">Unsubscribe anytime. We respect your privacy.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <img src="/marketing/assets/ovie-logo.svg" alt="Ovie EatIt" class="logo-img">
+                        <span class="logo-text">EatIt</span>
+                    </div>
+                    <p>Transforming kitchens with AI to stop food waste and save money.</p>
+                    <div class="social-links">
+                        <a href="#" class="social-link">Twitter</a>
+                        <a href="#" class="social-link">Instagram</a>
+                        <a href="#" class="social-link">Facebook</a>
+                    </div>
+                </div>
+                
+                <div class="footer-links">
+                    <div class="link-group">
+                        <h4>Product</h4>
+                        <a href="/marketing/features.html">Features</a>
+                        <a href="/marketing/pricing.html">Pricing</a>
+                        <a href="#">Downloads</a>
+                        <a href="#">Integrations</a>
+                    </div>
+                    
+                    <div class="link-group">
+                        <h4>Company</h4>
+                        <a href="/marketing/about.html">About Us</a>
+                        <a href="#">Careers</a>
+                        <a href="#">Press</a>
+                        <a href="#">Contact</a>
+                    </div>
+                    
+                    <div class="link-group">
+                        <h4>Resources</h4>
+                        <a href="#">Blog</a>
+                        <a href="#">Help Center</a>
+                        <a href="#">API Docs</a>
+                        <a href="#">Status</a>
+                    </div>
+                    
+                    <div class="link-group">
+                        <h4>Legal</h4>
+                        <a href="#">Privacy Policy</a>
+                        <a href="#">Terms of Service</a>
+                        <a href="#">Cookie Policy</a>
+                        <a href="#">GDPR</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2024 Ovie Technologies. All rights reserved.</p>
+                <div class="footer-badges">
+                    <img src="/marketing/assets/security-footer.svg" alt="SOC2 Compliant">
+                    <img src="/marketing/assets/privacy-footer.svg" alt="GDPR Compliant">
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Exit Intent Popup -->
+    <div class="exit-intent-popup" id="exitIntentPopup">
+        <div class="popup-content">
+            <button class="popup-close" id="popupClose">&times;</button>
+            <h3>Wait! Don't Let Food Waste Continue</h3>
+            <p>Get 20% off your first month and start saving money today!</p>
+            <div class="popup-offer">
+                <input type="email" placeholder="Enter your email" id="exitEmail">
+                <button class="btn btn-primary" id="exitClaim">Claim My Discount</button>
+            </div>
+            <p class="popup-disclaimer">Limited time offer. Unsubscribe anytime.</p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/marketing/app.js"></script>
+    
+    <!-- Analytics -->
+    <script>
+        // Google Analytics placeholder
+        (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+        })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+        
+        ga('create', 'UA-XXXXXXXXX-X', 'auto');
+        ga('send', 'pageview');
+    </script>
+</body>
+</html>

@@ -5,32 +5,50 @@ import extractRoute from './routes/extract'
 import recipesRoute from './routes/recipes'
 import ratingsRoute from './routes/ratings'
 import pantryRoute from './routes/pantry'
+import pantryItemsRoute from './routes/pantry-items'
 import groceryRoute from './routes/grocery'
 import preferencesRoute from './routes/preferences'
 import usersRoute from './routes/users'
 // import sharingRoute from './routes/sharing'
 import aiRoute from '../src/server/routes/ai'
+import instacartRoute from './routes/instacart'
+import mealPlansRoute from './routes/meal-plans'
+import shoppingRoute from './routes/shopping'
+import billingRoute from './routes/billing'
+import stripeWebhooksRoute from './routes/stripe-webhooks'
 import { prisma } from './lib/db'
+import { addSubscriptionHeaders } from './middleware/feature-gate'
 
 const app = new Hono()
 
 app.use('*', cors({
   origin: process.env.NODE_ENV === 'production' 
     ? '*'  // Allow all origins in production for Cloud Run
-    : ['http://localhost:3000'],
+    : ['http://localhost:3000', 'http://localhost:4000'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'stripe-signature'],
 }))
+
+// Add subscription headers to all API routes
+app.use('/api/*', addSubscriptionHeaders)
 
 app.route('/api/extract', extractRoute)
 app.route('/api/recipes', recipesRoute)
 app.route('/api/ratings', ratingsRoute)
 app.route('/api/pantry', pantryRoute)
+app.route('/api/pantry/items', pantryItemsRoute)
 app.route('/api/grocery', groceryRoute)
 app.route('/api/preferences', preferencesRoute)
 app.route('/api/users', usersRoute)
 // app.route('/api/sharing', sharingRoute)
 app.route('/api/ai', aiRoute)
+app.route('/api/instacart', instacartRoute)
+app.route('/api/meal-plans', mealPlansRoute)
+app.route('/api/shopping', shoppingRoute)
+app.route('/api/billing', billingRoute)
+
+// Stripe webhooks (no auth required, uses signature verification)
+app.route('/stripe', stripeWebhooksRoute)
 
 // Test endpoint
 app.get('/api/test', async (c) => {

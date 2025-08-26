@@ -1,268 +1,449 @@
-# Recipe Planner Deployment Guide
+# NoChickenLeftBehind - Digital Ocean Deployment Guide
 
-This guide covers deploying the Recipe Planner application using Docker containers and Kubernetes.
+## Overview
 
-## Prerequisites
+This guide provides comprehensive instructions for deploying NoChickenLeftBehind to Digital Ocean. The application can be deployed using either:
 
-- Docker Desktop or Docker Engine
-- Kubernetes cluster (minikube, Docker Desktop K8s, or cloud provider)
-- kubectl configured to connect to your cluster
-- Git
-
-## Quick Start
-
-### 1. Local Development with Docker Compose
-
-```bash
-# Build and start all services
-docker-compose -f docker-compose.production.yml up -d
-
-# View logs
-docker-compose -f docker-compose.production.yml logs -f
-
-# Stop services
-docker-compose -f docker-compose.production.yml down
-```
-
-### 2. Kubernetes Deployment
-
-#### Setup Environment Variables
-
-```bash
-# Copy and edit environment file
-cp .env.k8s.example .env.k8s
-# Edit .env.k8s with your actual values
-
-# Setup secrets in Kubernetes
-./scripts/setup-k8s-secrets.sh
-```
-
-#### Deploy to Kubernetes
-
-```bash
-# Deploy everything
-./k8s/deploy.sh
-
-# Or deploy manually
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/secrets.yaml
-kubectl apply -f k8s/postgres.yaml
-kubectl apply -f k8s/app.yaml
-```
-
-#### Check Deployment Status
-
-```bash
-# Check pods
-kubectl get pods -n recipe-planner
-
-# Check services
-kubectl get services -n recipe-planner
-
-# Check ingress
-kubectl get ingress -n recipe-planner
-
-# View logs
-kubectl logs -f -l app=recipe-planner-app -n recipe-planner
-```
+1. **Droplet Deployment** (Recommended) - More control, cost-effective for always-on apps
+2. **App Platform** - Managed platform, easier setup, better for variable traffic
 
 ## Architecture
 
-### Components
-
-- **Frontend**: React with TypeScript and Chakra UI
-- **Backend**: Bun runtime with Hono framework
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: Firebase Auth
-- **Reverse Proxy**: Traefik (Docker Compose) or nginx-ingress (Kubernetes)
-
-### Docker Images
-
-The application uses multi-stage, multi-platform Docker builds supporting:
-- linux/amd64 (x86_64)
-- linux/arm64 (ARM processors like Apple Silicon)
-
-## Configuration
-
-### Environment Variables
-
-#### Required Variables
-
-- `POSTGRES_PASSWORD`: Database password
-- `FIREBASE_API_KEY`: Firebase API key
-- `FIREBASE_AUTH_DOMAIN`: Firebase auth domain
-- `FIREBASE_PROJECT_ID`: Firebase project ID
-- `JWT_SECRET`: JWT signing secret (32+ characters)
-- `ENCRYPTION_KEY`: Data encryption key (32 characters)
-
-#### Optional Variables
-
-- `DOMAIN_NAME`: Your domain name for ingress
-- `DOCKER_REGISTRY`: Custom Docker registry
-- `IMAGE_TAG`: Docker image tag (default: latest)
-
-### Kubernetes Resources
-
-- **Namespace**: `recipe-planner`
-- **ConfigMap**: Non-sensitive configuration
-- **Secret**: Sensitive data (passwords, API keys)
-- **PVC**: PostgreSQL data storage (10Gi)
-- **Deployments**: PostgreSQL and Application
-- **Services**: Internal networking
-- **Ingress**: External access with SSL
-
-## CI/CD Pipeline
-
-The GitHub Actions workflow automatically:
-
-1. **Build**: Creates multi-platform Docker images
-2. **Test**: Runs any configured tests
-3. **Push**: Uploads images to GitHub Container Registry
-4. **Deploy**: Updates Kubernetes deployment (main branch only)
-
-### Setup GitHub Actions
-
-1. Add these secrets to your GitHub repository:
-   - `KUBECONFIG`: Base64 encoded kubeconfig file
-   - Environment variables from `.env.k8s.example`
-
-2. Push to main branch to trigger deployment
-
-## Security
-
-### Best Practices Implemented
-
-- Non-root container user (UID 1001)
-- Read-only root filesystem where possible
-- Security contexts with dropped capabilities
-- Resource limits and requests
-- Health checks and liveness probes
-- Secret management with Kubernetes secrets
-- HTTPS/TLS termination at ingress
-
-### SSL/TLS Certificates
-
-The ingress is configured for cert-manager with Let's Encrypt:
-
-```bash
-# Install cert-manager (if not already installed)
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
-
-# Create ClusterIssuer for Let's Encrypt
-kubectl apply -f - <<EOF
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: letsencrypt-prod
-spec:
-  acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: your-email@example.com
-    privateKeySecretRef:
-      name: letsencrypt-prod
-    solvers:
-    - http01:
-        ingress:
-          class: nginx
-EOF
+```
+┌─────────────────┐
+│   CloudFlare    │
+│      (CDN)      │
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│     Nginx       │
+│  (Reverse Proxy)│
+│   SSL/TLS       │
+└────────┬────────┘
+         │
+┌────────▼────────┐
+│   Application   │
+│   (Bun/Node)    │
+│    Port 3001    │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │         │
+┌───▼──┐  ┌──▼───┐
+│ Redis│  │ PostgreSQL│
+│Cache │  │ Database  │
+└──────┘  └───────────┘
 ```
 
-## Monitoring and Logging
+## Prerequisites
 
-### View Application Logs
+1. Digital Ocean account with billing enabled
+2. Domain name (for SSL certificates)
+3. GitHub repository (for CI/CD)
+4. Local development environment with:
+   - Docker & Docker Compose
+   - Bun runtime
+   - Git
+   - SSH key pair
+
+## Option 1: Droplet Deployment
+
+### 1.1 Create Droplet
+
+1. Log into Digital Ocean Dashboard
+2. Create a new Droplet:
+   - **Image**: Ubuntu 22.04 LTS
+   - **Size**: Regular SSD, 2GB RAM / 1 vCPU ($12/month minimum)
+   - **Region**: Choose closest to your users
+   - **Additional Options**:
+     - Enable Monitoring
+     - Enable IPv6
+   - **Authentication**: SSH Key (recommended)
+   - **Hostname**: `nochicken-prod`
+
+### 1.2 Initial Setup
 
 ```bash
-# Application logs
-kubectl logs -f deployment/recipe-planner-app -n recipe-planner
+# Set environment variables
+export DROPLET_IP=your.droplet.ip
+export DEPLOY_USER=deploy
 
-# Database logs
-kubectl logs -f deployment/postgres -n recipe-planner
-
-# All pods in namespace
-kubectl logs -f -l app=recipe-planner-app -n recipe-planner
+# Run initial setup
+./scripts/deploy-to-do.sh setup
 ```
+
+This will:
+- Update system packages
+- Install Docker & Docker Compose
+- Configure firewall (UFW)
+- Setup fail2ban for security
+- Create application directories
+
+### 1.3 Configure Environment
+
+1. Copy production environment template:
+```bash
+cp .env.production .env.production.local
+```
+
+2. Edit `.env.production.local` with your actual values:
+```bash
+# Generate secure secrets
+openssl rand -base64 32  # For JWT_SECRET
+openssl rand -base64 32  # For SESSION_SECRET
+```
+
+3. Important variables to set:
+   - Database credentials
+   - API keys (OpenAI, Anthropic, Firebase)
+   - Domain name
+   - Digital Ocean tokens
+
+### 1.4 Deploy Application
+
+```bash
+# Full deployment (first time)
+./scripts/deploy-to-do.sh full
+
+# Or step by step:
+./scripts/deploy-to-do.sh deploy    # Deploy application
+./scripts/deploy-to-do.sh ssl       # Setup SSL certificate
+./scripts/deploy-to-do.sh monitoring # Setup monitoring
+./scripts/deploy-to-do.sh backup    # Configure backups
+```
+
+### 1.5 Setup SSL Certificate
+
+```bash
+./scripts/deploy-to-do.sh ssl
+```
+
+You'll be prompted for:
+- Your domain name
+- Email for Let's Encrypt notifications
+
+### 1.6 Configure DNS
+
+Add these DNS records to your domain:
+
+```
+Type  Name    Value           TTL
+A     @       your.droplet.ip 3600
+A     www     your.droplet.ip 3600
+```
+
+## Option 2: App Platform Deployment
+
+### 2.1 Prepare Repository
+
+1. Ensure your code is pushed to GitHub
+2. Update `do-app-platform.yaml`:
+   - Replace `your-github-username` with your GitHub username
+   - Update domain name
+   - Adjust resource sizes as needed
+
+### 2.2 Deploy via CLI
+
+```bash
+# Install doctl
+brew install doctl  # macOS
+# or
+snap install doctl  # Linux
+
+# Authenticate
+doctl auth init
+
+# Create app
+doctl apps create --spec do-app-platform.yaml
+```
+
+### 2.3 Configure via Dashboard
+
+1. Go to Digital Ocean App Platform
+2. Connect GitHub repository
+3. Set environment variables in dashboard
+4. Configure custom domain
+5. Enable auto-deploy on push
+
+## Database Management
+
+### Backups
+
+Automatic backups run daily at 2 AM:
+
+```bash
+# Manual backup
+docker exec nochicken-backup /usr/local/bin/backup-db.sh
+
+# Restore from backup
+docker exec nochicken-backup /usr/local/bin/backup-db.sh restore /backups/backup_file.sql.gz
+```
+
+### Migrations
+
+```bash
+# Run migrations
+docker-compose -f docker-compose.production.yml run --rm app bunx prisma migrate deploy
+
+# Generate Prisma client
+docker-compose -f docker-compose.production.yml run --rm app bunx prisma generate
+```
+
+## Monitoring
 
 ### Health Checks
 
-The application exposes health endpoints:
-- `/health`: Application health check
-- Database connectivity is verified via PostgreSQL probes
+- Application health: `https://yourdomain.com/health`
+- Database health: Monitored via Docker healthcheck
+- Redis health: Monitored via Docker healthcheck
+
+### Logs
+
+```bash
+# View application logs
+docker-compose -f docker-compose.production.yml logs -f app
+
+# View all logs
+docker-compose -f docker-compose.production.yml logs -f
+
+# Check nginx logs
+docker-compose -f docker-compose.production.yml logs -f nginx
+```
+
+### Resource Monitoring
+
+```bash
+# Check resource usage
+docker stats
+
+# System resources
+htop
+
+# Disk usage
+df -h
+ncdu /
+```
+
+## CI/CD with GitHub Actions
+
+### Setup Secrets
+
+Add these secrets to your GitHub repository:
+
+1. **Digital Ocean**:
+   - `DO_ACCESS_TOKEN`: Your DO API token
+   - `DO_REGISTRY_TOKEN`: Container registry token
+   - `DO_REGISTRY_NAME`: Registry name
+   - `DROPLET_IP`: Your droplet IP
+   - `DEPLOY_USER`: SSH user (usually 'deploy')
+   - `SSH_PRIVATE_KEY`: Private key for SSH
+
+2. **Application**:
+   - `JWT_SECRET`
+   - `SESSION_SECRET`
+   - `OPENAI_API_KEY`
+   - `ANTHROPIC_API_KEY`
+   - `FIREBASE_API_KEY`
+   - All other secrets from `.env.production`
+
+3. **Optional**:
+   - `SLACK_WEBHOOK`: For deployment notifications
+
+### Deployment Workflow
+
+Automatic deployment triggers on push to `main`:
+
+```bash
+# Manual deployment
+gh workflow run deploy.yml
+
+# Deploy to staging
+gh workflow run deploy.yml -f environment=staging
+```
 
 ## Scaling
 
+### Vertical Scaling (Droplet)
+
+1. Create snapshot of current droplet
+2. Resize droplet in DO dashboard
+3. Restart services
+
 ### Horizontal Scaling
 
-```bash
-# Scale application pods
-kubectl scale deployment recipe-planner-app --replicas=3 -n recipe-planner
+1. **Load Balancer**: Add DO Load Balancer
+2. **Multiple Droplets**: Clone droplet from snapshot
+3. **Database**: Use DO Managed Database
+4. **Redis**: Use DO Managed Redis
 
-# Auto-scaling based on CPU usage
-kubectl autoscale deployment recipe-planner-app --cpu-percent=70 --min=2 --max=10 -n recipe-planner
-```
+### Performance Optimization
 
-### Vertical Scaling
+1. **Enable CDN**:
+   ```bash
+   # Configure CloudFlare or DO CDN
+   # Update CDN_URL in .env.production
+   ```
 
-Edit resource requests/limits in `k8s/app.yaml`:
+2. **Database Optimization**:
+   ```bash
+   # Run optimization script
+   docker exec nochicken-db psql -U nochicken_user -d nochicken_prod -c "VACUUM ANALYZE;"
+   ```
 
-```yaml
-resources:
-  requests:
-    cpu: 200m
-    memory: 512Mi
-  limits:
-    cpu: 1000m
-    memory: 1Gi
-```
-
-## Backup and Recovery
-
-### Database Backup
-
-```bash
-# Create backup
-kubectl exec -it deployment/postgres -n recipe-planner -- pg_dump -U recipe_user recipe_planner > backup.sql
-
-# Restore backup
-kubectl exec -i deployment/postgres -n recipe-planner -- psql -U recipe_user recipe_planner < backup.sql
-```
-
-### Persistent Volume Backup
-
-Follow your cloud provider's documentation for PV snapshots and backups.
+3. **Image Optimization**:
+   - Use WebP format
+   - Implement lazy loading
+   - Compress uploads
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Pods not starting**: Check logs and resource availability
+1. **502 Bad Gateway**:
    ```bash
-   kubectl describe pod <pod-name> -n recipe-planner
+   # Check if app is running
+   docker-compose -f docker-compose.production.yml ps
+   
+   # Restart services
+   docker-compose -f docker-compose.production.yml restart
    ```
 
-2. **Database connection issues**: Verify secrets and network policies
+2. **Database Connection Issues**:
    ```bash
-   kubectl get secrets -n recipe-planner
-   kubectl exec -it deployment/recipe-planner-app -n recipe-planner -- env | grep POSTGRES
+   # Check database logs
+   docker-compose -f docker-compose.production.yml logs postgres
+   
+   # Test connection
+   docker exec -it nochicken-db psql -U nochicken_user -d nochicken_prod
    ```
 
-3. **Ingress not working**: Check ingress controller and DNS configuration
+3. **SSL Certificate Issues**:
    ```bash
-   kubectl get ingress -n recipe-planner
-   kubectl describe ingress recipe-planner-ingress -n recipe-planner
+   # Renew certificate manually
+   docker exec nochicken-certbot certbot renew --force-renewal
    ```
 
-### Cleanup
+4. **Out of Memory**:
+   ```bash
+   # Check memory usage
+   free -h
+   
+   # Clean Docker resources
+   docker system prune -af --volumes
+   ```
 
-To completely remove the deployment:
+### Recovery Procedures
 
-```bash
-./k8s/teardown.sh
-```
+1. **Rollback Deployment**:
+   ```bash
+   # The GitHub Action automatically rolls back on failure
+   # Manual rollback:
+   docker-compose -f docker-compose.production.yml down
+   docker pull registry.digitalocean.com/your-registry/nochicken:previous-tag
+   docker-compose -f docker-compose.production.yml up -d
+   ```
+
+2. **Restore Database**:
+   ```bash
+   # List available backups
+   ls -la /opt/backups/
+   
+   # Restore specific backup
+   ./scripts/backup-db.sh restore /opt/backups/backup_file.sql.gz
+   ```
+
+## Security Best Practices
+
+1. **Regular Updates**:
+   ```bash
+   # Update system packages
+   apt update && apt upgrade -y
+   
+   # Update Docker images
+   docker-compose -f docker-compose.production.yml pull
+   docker-compose -f docker-compose.production.yml up -d
+   ```
+
+2. **Security Scanning**:
+   ```bash
+   # Scan for vulnerabilities
+   docker scan nochicken:latest
+   ```
+
+3. **Access Control**:
+   - Use SSH keys only (no passwords)
+   - Implement fail2ban
+   - Regular security audits
+   - Rotate secrets regularly
+
+4. **Firewall Rules**:
+   ```bash
+   # Check firewall status
+   ufw status verbose
+   ```
+
+## Cost Optimization
+
+### Estimated Monthly Costs
+
+- **Droplet**: $12-48/month (2GB-8GB RAM)
+- **Managed Database**: $15/month (optional)
+- **Spaces (Backup)**: $5/month
+- **Load Balancer**: $12/month (if needed)
+- **Total**: ~$20-80/month
+
+### Tips
+
+1. Use snapshots for backups instead of Spaces
+2. Start with single droplet, scale as needed
+3. Use CloudFlare free tier for CDN
+4. Monitor usage to right-size resources
 
 ## Support
 
-For issues and questions:
-- Check the application logs first
-- Review Kubernetes events: `kubectl get events -n recipe-planner`
-- Consult the troubleshooting section above
+### Documentation
+
+- [Digital Ocean Droplets](https://docs.digitalocean.com/products/droplets/)
+- [Docker Documentation](https://docs.docker.com/)
+- [Prisma Documentation](https://www.prisma.io/docs/)
+- [Bun Documentation](https://bun.sh/docs)
+
+### Getting Help
+
+1. Check application logs
+2. Review this documentation
+3. Check GitHub Issues
+4. Contact Digital Ocean support
+
+## Maintenance Schedule
+
+- **Daily**: Automated backups (2 AM)
+- **Weekly**: Security updates check
+- **Monthly**: SSL certificate renewal (automated)
+- **Quarterly**: Full system audit
+
+## Checklist
+
+### Pre-Deployment
+
+- [ ] Domain name configured
+- [ ] DNS records added
+- [ ] Environment variables set
+- [ ] SSH keys configured
+- [ ] GitHub secrets added
+
+### Deployment
+
+- [ ] Droplet created
+- [ ] Application deployed
+- [ ] SSL certificate installed
+- [ ] Monitoring configured
+- [ ] Backups scheduled
+
+### Post-Deployment
+
+- [ ] Health checks passing
+- [ ] Logs monitored
+- [ ] Performance baseline established
+- [ ] Documentation updated
+- [ ] Team notified

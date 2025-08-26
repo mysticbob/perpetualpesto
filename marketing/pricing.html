@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing Plans - Ovie EatIt</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Choose the perfect plan for your family. Start free and upgrade as you grow. All plans include 14-day money-back guarantee.">
+    <meta name="keywords" content="food waste app pricing, meal planning cost, grocery app subscription">
+    
+    <!-- Open Graph Tags -->
+    <meta property="og:title" content="Pricing Plans - Ovie EatIt">
+    <meta property="og:description" content="Choose the perfect plan for your family. Start free and upgrade as you grow.">
+    <meta property="og:image" content="/marketing/assets/og-pricing.jpg">
+    <meta property="og:url" content="https://eatit.ovie.life/pricing">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/marketing/styles.css">
+    
+    <!-- Additional pricing styles -->
+    <style>
+        .billing-toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0 3rem;
+            padding: 0.5rem;
+            background: var(--light-gray);
+            border-radius: var(--border-radius);
+            width: fit-content;
+            margin: 2rem auto 3rem;
+        }
+        
+        .billing-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--border-radius-small);
+            transition: background-color var(--transition-fast);
+            position: relative;
+        }
+        
+        .billing-option.active {
+            background: var(--white);
+            box-shadow: var(--shadow-small);
+        }
+        
+        .billing-toggle {
+            display: none;
+        }
+        
+        .savings-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--highlight-green);
+            color: var(--dark-text);
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: var(--font-weight-bold);
+            white-space: nowrap;
+        }
+        
+        .pricing-hero {
+            padding: 8rem 0 4rem;
+            text-align: center;
+        }
+        
+        .pricing-comparison {
+            padding: 4rem 0;
+        }
+        
+        .comparison-table {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-medium);
+            margin: 3rem 0;
+        }
+        
+        .comparison-header {
+            display: grid;
+            grid-template-columns: 2fr repeat(3, 1fr);
+            background: var(--light-gray);
+            padding: 2rem 1rem;
+            gap: 1rem;
+        }
+        
+        .comparison-row {
+            display: grid;
+            grid-template-columns: 2fr repeat(3, 1fr);
+            padding: 1.5rem 1rem;
+            gap: 1rem;
+            border-bottom: 1px solid var(--border-gray);
+            align-items: center;
+        }
+        
+        .comparison-row:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-name {
+            font-weight: var(--font-weight-bold);
+            text-align: left;
+        }
+        
+        .feature-value {
+            text-align: center;
+            font-weight: var(--font-weight-bold);
+        }
+        
+        .feature-check {
+            text-align: center;
+            color: var(--success-green);
+            font-size: 1.25rem;
+        }
+        
+        .feature-cross {
+            text-align: center;
+            color: var(--medium-gray);
+            font-size: 1.25rem;
+        }
+        
+        .plan-highlight {
+            background: var(--primary-teal);
+            color: var(--white);
+            font-weight: var(--font-weight-bold);
+            text-align: center;
+        }
+        
+        .faq-section {
+            padding: 6rem 0;
+            background: var(--light-gray);
+        }
+        
+        .faq-grid {
+            display: grid;
+            gap: 1.5rem;
+            margin-top: 3rem;
+            max-width: 800px;
+            margin: 3rem auto 0;
+        }
+        
+        .faq-item {
+            background: var(--white);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-small);
+        }
+        
+        .faq-question {
+            padding: 1.5rem 2rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--white);
+            border: none;
+            width: 100%;
+            text-align: left;
+            font-size: 1.125rem;
+            font-weight: var(--font-weight-bold);
+            transition: background-color var(--transition-fast);
+        }
+        
+        .faq-question:hover {
+            background: var(--light-gray);
+        }
+        
+        .faq-answer {
+            padding: 0 2rem 1.5rem;
+            display: none;
+            color: var(--medium-gray);
+            line-height: 1.6;
+        }
+        
+        .faq-item.active .faq-answer {
+            display: block;
+        }
+        
+        .faq-icon {
+            transition: transform var(--transition-fast);
+        }
+        
+        .faq-item.active .faq-icon {
+            transform: rotate(180deg);
+        }
+        
+        .enterprise-section {
+            padding: 6rem 0;
+            text-align: center;
+        }
+        
+        .enterprise-card {
+            background: linear-gradient(135deg, var(--dark-text) 0%, #2d2e2b 100%);
+            color: var(--white);
+            padding: 4rem 2rem;
+            border-radius: var(--border-radius);
+            max-width: 600px;
+            margin: 3rem auto;
+        }
+        
+        .enterprise-card h3 {
+            color: var(--white);
+            margin-bottom: 1rem;
+        }
+        
+        .enterprise-features {
+            list-style: none;
+            margin: 2rem 0;
+            text-align: left;
+            max-width: 400px;
+            margin: 2rem auto;
+        }
+        
+        .enterprise-features li {
+            padding: 0.5rem 0;
+            position: relative;
+            padding-left: 2rem;
+        }
+        
+        .enterprise-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--highlight-green);
+            font-weight: var(--font-weight-bold);
+        }
+        
+        @media (max-width: 768px) {
+            .comparison-header,
+            .comparison-row {
+                grid-template-columns: 1fr;
+                text-align: center;
+                gap: 0.5rem;
+            }
+            
+            .feature-name {
+                text-align: center;
+                margin-bottom: 1rem;
+                padding-bottom: 0.5rem;
+                border-bottom: 1px solid var(--border-gray);
+            }
+            
+            .comparison-header .feature-name {
+                display: none;
+            }
+            
+            .billing-toggle-container {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .pricing-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav-sticky">
+        <div class="container">
+            <div class="nav-content">
+                <div class="logo">
+                    <img src="/marketing/assets/ovie-logo.svg" alt="Ovie EatIt" class="logo-img">
+                    <span class="logo-text">EatIt</span>
+                </div>
+                <div class="nav-menu">
+                    <a href="/marketing/index.html" class="nav-link">Home</a>
+                    <a href="/marketing/features.html" class="nav-link">Features</a>
+                    <a href="/marketing/pricing.html" class="nav-link">Pricing</a>
+                    <a href="/marketing/about.html" class="nav-link">About</a>
+                    <a href="#" class="nav-link">Login</a>
+                    <a href="/marketing/signup.html" class="btn btn-primary nav-cta">Start Free Trial</a>
+                </div>
+                <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Pricing Hero -->
+    <section class="pricing-hero">
+        <div class="container">
+            <h1 class="section-title">Simple, Transparent Pricing</h1>
+            <p class="section-subtitle">
+                Choose the plan that's right for your family. Start free and upgrade anytime. 
+                All paid plans include a 14-day money-back guarantee.
+            </p>
+            
+            <div class="billing-toggle-container">
+                <label class="billing-option active" id="monthlyOption">
+                    <input type="radio" name="billing" value="monthly" class="billing-toggle" checked>
+                    <span>Monthly</span>
+                </label>
+                <label class="billing-option" id="annualOption">
+                    <input type="radio" name="billing" value="annual" class="billing-toggle">
+                    <span>Annual</span>
+                    <span class="savings-badge">Save 20%</span>
+                </label>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Cards -->
+    <section class="pricing-preview">
+        <div class="container">
+            <div class="pricing-cards">
+                <div class="pricing-card">
+                    <div class="plan-header">
+                        <h3 class="plan-name">Free</h3>
+                        <div class="plan-price" data-monthly="0" data-annual="0">
+                            <span class="price">$0</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <p class="plan-description">Perfect for trying out EatIt</p>
+                    </div>
+                    <ul class="plan-features">
+                        <li>1 fridge/pantry</li>
+                        <li>Basic expiration tracking</li>
+                        <li>100 recipes</li>
+                        <li>Simple grocery lists</li>
+                        <li>Email support</li>
+                        <li>Mobile app access</li>
+                    </ul>
+                    <a href="/marketing/signup.html?plan=free" class="btn btn-secondary">Get Started Free</a>
+                </div>
+                
+                <div class="pricing-card featured">
+                    <div class="plan-badge">Most Popular</div>
+                    <div class="plan-header">
+                        <h3 class="plan-name">Small</h3>
+                        <div class="plan-price" data-monthly="5" data-annual="50">
+                            <span class="price">$5</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <div class="plan-savings">Save $10 with annual billing</div>
+                        <p class="plan-description">For individuals and small households</p>
+                    </div>
+                    <ul class="plan-features">
+                        <li>Everything in Free</li>
+                        <li>AI meal planning</li>
+                        <li>Unlimited recipes</li>
+                        <li>Advanced expiration alerts</li>
+                        <li>Instacart integration</li>
+                        <li>Recipe nutritional info</li>
+                        <li>Smart shopping lists</li>
+                        <li>Recipe scaling</li>
+                        <li>Priority email support</li>
+                    </ul>
+                    <a href="/marketing/signup.html?plan=small" class="btn btn-primary">Start Free Trial</a>
+                    <p class="trial-note">14-day free trial, then $5/month</p>
+                </div>
+                
+                <div class="pricing-card">
+                    <div class="plan-header">
+                        <h3 class="plan-name">Family</h3>
+                        <div class="plan-price" data-monthly="10" data-annual="100">
+                            <span class="price">$10</span>
+                            <span class="period">/month</span>
+                        </div>
+                        <div class="plan-savings">Save $20 with annual billing</div>
+                        <p class="plan-description">Perfect for families and households</p>
+                    </div>
+                    <ul class="plan-features">
+                        <li>Everything in Small</li>
+                        <li>Up to 5 family members</li>
+                        <li>Multiple homes/locations</li>
+                        <li>Shared meal planning</li>
+                        <li>Family calendar integration</li>
+                        <li>Dietary restrictions per person</li>
+                        <li>Bulk recipe planning</li>
+                        <li>Shopping list sharing</li>
+                        <li>Priority support</li>
+                        <li>Video onboarding call</li>
+                    </ul>
+                    <a href="/marketing/signup.html?plan=family" class="btn btn-secondary">Start Free Trial</a>
+                    <p class="trial-note">14-day free trial, then $10/month</p>
+                </div>
+            </div>
+            
+            <div class="pricing-footer">
+                <p><strong>Need more family members?</strong> Add additional users for just $1/month each.</p>
+                <p><strong>All plans include:</strong> Mobile & web access, regular updates, data backup, and GDPR compliance.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Feature Comparison Table -->
+    <section class="pricing-comparison">
+        <div class="container">
+            <h2 class="section-title center">Feature Comparison</h2>
+            <p class="section-subtitle center">
+                See exactly what's included in each plan
+            </p>
+            
+            <div class="comparison-table">
+                <div class="comparison-header">
+                    <div class="feature-name">Features</div>
+                    <div class="plan-highlight">Free</div>
+                    <div class="plan-highlight">Small</div>
+                    <div class="plan-highlight">Family</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Fridges/Pantries</div>
+                    <div class="feature-value">1</div>
+                    <div class="feature-value">3</div>
+                    <div class="feature-value">Unlimited</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Family Members</div>
+                    <div class="feature-value">1</div>
+                    <div class="feature-value">1</div>
+                    <div class="feature-value">5</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Recipe Database</div>
+                    <div class="feature-value">100 recipes</div>
+                    <div class="feature-value">Unlimited</div>
+                    <div class="feature-value">Unlimited</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Basic Expiration Tracking</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Simple Grocery Lists</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Mobile App Access</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">AI Meal Planning</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Advanced Expiration Alerts</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Instacart Integration</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Recipe Nutritional Info</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Smart Shopping Lists</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Recipe Scaling</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Multiple Homes</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Shared Meal Planning</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Family Calendar Integration</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Individual Dietary Restrictions</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-cross">✗</div>
+                    <div class="feature-check">✓</div>
+                </div>
+                
+                <div class="comparison-row">
+                    <div class="feature-name">Support</div>
+                    <div class="feature-value">Email</div>
+                    <div class="feature-value">Priority Email</div>
+                    <div class="feature-value">Priority + Video Call</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="faq-section">
+        <div class="container">
+            <h2 class="section-title center">Frequently Asked Questions</h2>
+            <p class="section-subtitle center">
+                Everything you need to know about EatIt pricing and plans
+            </p>
+            
+            <div class="faq-grid">
+                <div class="faq-item">
+                    <button class="faq-question">
+                        How does the free trial work?
+                        <span class="faq-icon">▼</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>You get full access to your chosen paid plan for 14 days, completely free. No credit card required to start. You can cancel anytime during the trial without being charged.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <button class="faq-question">
+                        Can I change plans anytime?
+                        <span class="faq-icon">▼</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes! You can upgrade or downgrade your plan at any time. When you upgrade, you'll be charged the prorated difference. When you downgrade, you'll receive account credit for the difference.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <button class="faq-question">
+                        What's included in the money-back guarantee?
+                        <span class="faq-icon">▼</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>If you're not satisfied with EatIt within your first 14 days of paid service, we'll refund your money completely. No questions asked, no hassles.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <button class="faq-question">
+                        How does annual billing work?
+                        <span class="faq-icon">▼</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Annual plans are billed once per year and offer significant savings (20% off monthly pricing). You can switch to annual billing at any time and receive credit for unused monthly charges.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <button class="faq-question">
+                        Can I add more family members later?
+                        <span class="faq-icon">▼</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Absolutely! The Family plan includes up to 5 members. You can add additional family members for just $1/month each. Add or remove members anytime from your account settings.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <button class="faq-question">
+                        What payment methods do you accept?
+                        <span class="faq-icon">▼</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>We accept all major credit cards (Visa, MasterCard, American Express, Discover), PayPal, Apple Pay, and Google Pay. All payments are processed securely through Stripe.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <button class="faq-question">
+                        Is my data secure?
+                        <span class="faq-icon">▼</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>Yes! We use bank-level security with 256-bit SSL encryption. We're SOC 2 compliant and GDPR compliant. Your data is backed up daily and we never sell or share your personal information.</p>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <button class="faq-question">
+                        What if I need help getting started?
+                        <span class="faq-icon">▼</span>
+                    </button>
+                    <div class="faq-answer">
+                        <p>We provide comprehensive onboarding! Free users get email support and helpful tutorials. Small plan users get priority email support. Family plan users also get a personalized video onboarding call to ensure you get the most out of EatIt.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Enterprise Section -->
+    <section class="enterprise-section">
+        <div class="container">
+            <h2 class="section-title">Enterprise & Custom Solutions</h2>
+            <p class="section-subtitle">
+                Need something more? We work with restaurants, meal kit companies, and large organizations.
+            </p>
+            
+            <div class="enterprise-card">
+                <h3>Enterprise Features</h3>
+                <p>Custom solutions for organizations with specific needs</p>
+                
+                <ul class="enterprise-features">
+                    <li>White-label branding options</li>
+                    <li>API access and integrations</li>
+                    <li>Custom recipe databases</li>
+                    <li>Advanced analytics and reporting</li>
+                    <li>Dedicated account manager</li>
+                    <li>SLA guarantees</li>
+                    <li>Custom onboarding and training</li>
+                    <li>Volume pricing discounts</li>
+                </ul>
+                
+                <a href="mailto:enterprise@ovie.life" class="btn btn-primary btn-large">
+                    Contact Sales
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="final-cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2 class="cta-title">Ready to Stop Wasting Food?</h2>
+                <p class="cta-subtitle">
+                    Join thousands of families saving money and reducing waste with EatIt. 
+                    Start your free trial today - no credit card required.
+                </p>
+                
+                <div class="cta-buttons">
+                    <a href="/marketing/signup.html" class="btn btn-primary btn-large">
+                        Start Free Trial
+                    </a>
+                    <a href="/marketing/features.html" class="btn btn-secondary btn-large">
+                        See All Features
+                    </a>
+                </div>
+                
+                <div class="cta-guarantee">
+                    <div class="guarantee-icon">🛡️</div>
+                    <p>14-day money-back guarantee • No setup fees • Cancel anytime</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <img src="/marketing/assets/ovie-logo.svg" alt="Ovie EatIt" class="logo-img">
+                        <span class="logo-text">EatIt</span>
+                    </div>
+                    <p>Transforming kitchens with AI to stop food waste and save money.</p>
+                    <div class="social-links">
+                        <a href="#" class="social-link">Twitter</a>
+                        <a href="#" class="social-link">Instagram</a>
+                        <a href="#" class="social-link">Facebook</a>
+                    </div>
+                </div>
+                
+                <div class="footer-links">
+                    <div class="link-group">
+                        <h4>Product</h4>
+                        <a href="/marketing/features.html">Features</a>
+                        <a href="/marketing/pricing.html">Pricing</a>
+                        <a href="#">Downloads</a>
+                        <a href="#">Integrations</a>
+                    </div>
+                    
+                    <div class="link-group">
+                        <h4>Company</h4>
+                        <a href="/marketing/about.html">About Us</a>
+                        <a href="#">Careers</a>
+                        <a href="#">Press</a>
+                        <a href="#">Contact</a>
+                    </div>
+                    
+                    <div class="link-group">
+                        <h4>Resources</h4>
+                        <a href="#">Blog</a>
+                        <a href="#">Help Center</a>
+                        <a href="#">API Docs</a>
+                        <a href="#">Status</a>
+                    </div>
+                    
+                    <div class="link-group">
+                        <h4>Legal</h4>
+                        <a href="#">Privacy Policy</a>
+                        <a href="#">Terms of Service</a>
+                        <a href="#">Cookie Policy</a>
+                        <a href="#">GDPR</a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2024 Ovie Technologies. All rights reserved.</p>
+                <div class="footer-badges">
+                    <img src="/marketing/assets/security-footer.svg" alt="SOC2 Compliant">
+                    <img src="/marketing/assets/privacy-footer.svg" alt="GDPR Compliant">
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/marketing/app.js"></script>
+    
+    <!-- Pricing-specific JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // FAQ functionality
+            const faqItems = document.querySelectorAll('.faq-item');
+            faqItems.forEach(item => {
+                const question = item.querySelector('.faq-question');
+                question.addEventListener('click', function() {
+                    // Close all other items
+                    faqItems.forEach(otherItem => {
+                        if (otherItem !== item) {
+                            otherItem.classList.remove('active');
+                        }
+                    });
+                    
+                    // Toggle current item
+                    item.classList.toggle('active');
+                });
+            });
+            
+            // Billing toggle functionality
+            const monthlyOption = document.getElementById('monthlyOption');
+            const annualOption = document.getElementById('annualOption');
+            const monthlyRadio = monthlyOption.querySelector('input');
+            const annualRadio = annualOption.querySelector('input');
+            
+            function updatePricing() {
+                const isAnnual = annualRadio.checked;
+                const priceElements = document.querySelectorAll('.plan-price');
+                
+                priceElements.forEach(priceEl => {
+                    const monthly = parseFloat(priceEl.dataset.monthly);
+                    const annual = parseFloat(priceEl.dataset.annual);
+                    
+                    if (monthly === 0) return; // Skip free plan
+                    
+                    const priceSpan = priceEl.querySelector('.price');
+                    const savingsEl = priceEl.parentNode.querySelector('.plan-savings');
+                    
+                    if (isAnnual) {
+                        const monthlyEquivalent = Math.floor(annual / 12);
+                        priceSpan.textContent = '$' + monthlyEquivalent;
+                        if (savingsEl) {
+                            const savings = (monthly * 12) - annual;
+                            savingsEl.textContent = `Save $${savings} annually`;
+                            savingsEl.style.display = 'block';
+                        }
+                    } else {
+                        priceSpan.textContent = '$' + monthly;
+                        if (savingsEl) {
+                            savingsEl.style.display = 'none';
+                        }
+                    }
+                });
+                
+                // Update button classes
+                if (isAnnual) {
+                    annualOption.classList.add('active');
+                    monthlyOption.classList.remove('active');
+                } else {
+                    monthlyOption.classList.add('active');
+                    annualOption.classList.remove('active');
+                }
+            }
+            
+            monthlyOption.addEventListener('click', function() {
+                monthlyRadio.checked = true;
+                updatePricing();
+            });
+            
+            annualOption.addEventListener('click', function() {
+                annualRadio.checked = true;
+                updatePricing();
+            });
+            
+            // Initialize pricing
+            updatePricing();
+        });
+    </script>
+</body>
+</html>

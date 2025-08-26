@@ -20,6 +20,7 @@ import { useState } from 'react'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { useAuth } from '../contexts/AuthContext'
 import { formatIngredientAmount } from '../utils/units'
+import { apiClient } from '../utils/apiClient'
 
 interface ExtractedRecipe {
   name: string
@@ -61,19 +62,7 @@ export default function RecipeExtractor() {
 
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/extract', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: url.trim() }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to extract recipe')
-      }
-
-      const extractedRecipe = await response.json()
+      const extractedRecipe = await apiClient.extractRecipe(url.trim())
       setRecipe(extractedRecipe)
       
       toast({
@@ -99,31 +88,19 @@ export default function RecipeExtractor() {
 
     setSaving(true)
     try {
-      const response = await fetch('http://localhost:3001/api/recipes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: currentUser.uid,
-          name: recipe.name,
-          description: recipe.description,
-          prepTime: recipe.prepTime,
-          cookTime: recipe.cookTime,
-          totalTime: recipe.totalTime,
-          servings: recipe.servings,
-          imageUrl: recipe.imageUrl,
-          sourceUrl: url,
-          ingredients: recipe.ingredients,
-          instructions: recipe.instructions
-        }),
+      const savedRecipe = await apiClient.createRecipe({
+        userId: currentUser.uid,
+        name: recipe.name,
+        description: recipe.description,
+        prepTime: recipe.prepTime,
+        cookTime: recipe.cookTime,
+        totalTime: recipe.totalTime,
+        servings: recipe.servings,
+        imageUrl: recipe.imageUrl,
+        sourceUrl: url,
+        ingredients: recipe.ingredients,
+        instructions: recipe.instructions
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to save recipe')
-      }
-
-      const savedRecipe = await response.json()
       
       toast({
         title: 'Recipe Saved!',

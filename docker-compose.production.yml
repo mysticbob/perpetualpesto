@@ -1,118 +1,188 @@
+version: '3.8'
+
 services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: nochicken-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-nochicken_prod}
+      POSTGRES_USER: ${DB_USER:-nochicken_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.utf8"
+      # Performance tuning
+      POSTGRES_MAX_CONNECTIONS: "200"
+      POSTGRES_SHARED_BUFFERS: "256MB"
+      POSTGRES_EFFECTIVE_CACHE_SIZE: "1GB"
+      POSTGRES_MAINTENANCE_WORK_MEM: "64MB"
+      POSTGRES_CHECKPOINT_COMPLETION_TARGET: "0.9"
+      POSTGRES_WAL_BUFFERS: "16MB"
+      POSTGRES_DEFAULT_STATISTICS_TARGET: "100"
+      POSTGRES_RANDOM_PAGE_COST: "1.1"
+      POSTGRES_EFFECTIVE_IO_CONCURRENCY: "200"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres-backup:/backup
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-nochicken_user} -d ${DB_NAME:-nochicken_prod}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Application
   app:
     build:
       context: .
       dockerfile: Dockerfile.production
-      platforms:
-        - linux/amd64
-        - linux/arm64
-    container_name: recipe-planner-app
+      target: production
+      cache_from:
+        - registry.digitalocean.com/${DO_REGISTRY}/nochicken:latest
+    image: registry.digitalocean.com/${DO_REGISTRY}/nochicken:latest
+    container_name: nochicken-app
     restart: unless-stopped
-    ports:
-      - "${APP_PORT:-3000}:3000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - FIREBASE_API_KEY=${FIREBASE_API_KEY}
-      - FIREBASE_AUTH_DOMAIN=${FIREBASE_AUTH_DOMAIN}
-      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - recipe-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.recipe-app.rule=Host(`${DOMAIN:-localhost}`)"
-      - "traefik.http.routers.recipe-app.tls=true"
-      - "traefik.http.routers.recipe-app.tls.certresolver=letsencrypt"
-    healthcheck:
-      test: ["CMD", "bun", "--version"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  postgres:
-    image: postgres:16-alpine
-    container_name: recipe-planner-db
-    restart: unless-stopped
+      redis:
+        condition: service_healthy
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-recipe_planner}
-      POSTGRES_USER: ${POSTGRES_USER:-recipe_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://${DB_USER:-nochicken_user}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-nochicken_prod}?schema=public&connection_limit=50
+      REDIS_URL: redis://redis:6379
+      # AI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      AI_MODEL_CHAT: ${AI_MODEL_CHAT:-gpt-4-turbo-preview}
+      AI_MODEL_VISION: ${AI_MODEL_VISION:-gpt-4-vision-preview}
+      # Security
+      JWT_SECRET: ${JWT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
+      # Firebase
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY}
+      FIREBASE_AUTH_DOMAIN: ${FIREBASE_AUTH_DOMAIN}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      # Instacart
+      INSTACART_CLIENT_ID: ${INSTACART_CLIENT_ID}
+      INSTACART_CLIENT_SECRET: ${INSTACART_CLIENT_SECRET}
+      INSTACART_REDIRECT_URI: ${INSTACART_REDIRECT_URI}
+      # Monitoring
+      NEW_RELIC_APP_NAME: ${NEW_RELIC_APP_NAME:-nochicken-prod}
+      NEW_RELIC_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - ./backups:/backups:ro
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
     networks:
-      - recipe-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-recipe_user} -d ${POSTGRES_DB:-recipe_planner}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    security_opt:
-      - no-new-privileges:true
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
-  # Optional: Redis for caching
+  # Redis for caching and sessions
   redis:
     image: redis:7-alpine
-    container_name: recipe-planner-cache
+    container_name: nochicken-redis
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     networks:
-      - recipe-network
+      - app-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
-      timeout: 3s
-      retries: 3
-    security_opt:
-      - no-new-privileges:true
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # Optional: Reverse proxy with SSL
-  traefik:
-    image: traefik:v3.0
-    container_name: recipe-planner-proxy
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: nochicken-nginx
     restart: unless-stopped
+    depends_on:
+      - app
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"  # Dashboard
-    environment:
-      - TRAEFIK_API_DASHBOARD=true
-      - TRAEFIK_API_INSECURE=true
-      - TRAEFIK_PROVIDERS_DOCKER=true
-      - TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT=false
-      - TRAEFIK_ENTRYPOINTS_WEB_ADDRESS=:80
-      - TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS=:443
-      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=${ACME_EMAIL}
-      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_STORAGE=/letsencrypt/acme.json
-      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_HTTPCHALLENGE_ENTRYPOINT=web
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_certs:/letsencrypt
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/sites-enabled:/etc/nginx/sites-enabled:ro
+      - ./dist:/usr/share/nginx/html:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
     networks:
-      - recipe-network
-    profiles:
-      - proxy
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Certbot for SSL certificates
+  certbot:
+    image: certbot/certbot
+    container_name: nochicken-certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - app-network
+
+  # Backup service
+  backup:
+    image: postgres:15-alpine
+    container_name: nochicken-backup
+    depends_on:
+      - postgres
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${DB_NAME:-nochicken_prod}
+      POSTGRES_USER: ${DB_USER:-nochicken_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 2 * * *}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      DO_SPACES_KEY: ${DO_SPACES_KEY}
+      DO_SPACES_SECRET: ${DO_SPACES_SECRET}
+      DO_SPACES_BUCKET: ${DO_SPACES_BUCKET}
+      DO_SPACES_REGION: ${DO_SPACES_REGION:-nyc3}
+    volumes:
+      - ./scripts/backup-db.sh:/usr/local/bin/backup-db.sh:ro
+      - ./backups:/backups
+    networks:
+      - app-network
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache dcron aws-cli && echo \"$$BACKUP_SCHEDULE /usr/local/bin/backup-db.sh\" | crontab - && crond -f"]
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
-  traefik_certs:
-    driver: local
-
-networks:
-  recipe-network:
-    driver: bridge

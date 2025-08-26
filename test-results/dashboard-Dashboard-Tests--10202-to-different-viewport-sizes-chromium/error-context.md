@@ -1,0 +1,64 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - paragraph [ref=e8]: 🍽️
+        - generic [ref=e9]:
+          - heading "Eat It App" [level=2] [ref=e10]
+          - paragraph [ref=e11]: Your personal recipe and meal planning assistant
+      - generic [ref=e14]:
+        - tablist [ref=e15]:
+          - tab "Sign In" [selected] [ref=e16] [cursor=pointer]
+          - tab "Sign Up" [ref=e17] [cursor=pointer]
+        - tabpanel "Sign In" [ref=e19]:
+          - generic [ref=e20]:
+            - paragraph [ref=e21]: Welcome back! Sign in to access your recipes and meal plans.
+            - generic [ref=e23]:
+              - group [ref=e24]:
+                - generic [ref=e25]:
+                  - text: Email
+                  - generic [ref=e26]: "*"
+                - textbox "Email" [ref=e27]
+              - group [ref=e28]:
+                - generic [ref=e29]:
+                  - text: Password
+                  - generic [ref=e30]: "*"
+                - textbox "Password" [ref=e31]
+              - button "Sign In" [ref=e32] [cursor=pointer]
+            - generic [ref=e33]:
+              - separator [ref=e34]
+              - paragraph [ref=e35]: or continue with
+              - separator [ref=e36]
+            - button "Sign in with Google" [ref=e37] [cursor=pointer]:
+              - paragraph [ref=e39] [cursor=pointer]: 🔍
+              - text: Sign in with Google
+      - generic [ref=e40]:
+        - paragraph [ref=e41]: "What you'll get with Eat It App:"
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - paragraph [ref=e44]: 📝
+            - paragraph [ref=e45]: Organize and manage your recipe collection
+          - generic [ref=e46]:
+            - paragraph [ref=e47]: 📅
+            - paragraph [ref=e48]: Plan meals and create weekly menus
+          - generic [ref=e49]:
+            - paragraph [ref=e50]: 🏪
+            - paragraph [ref=e51]: Track pantry items and expiration dates
+          - generic [ref=e52]:
+            - paragraph [ref=e53]: ⏰
+            - paragraph [ref=e54]: Built-in cooking timers for perfect meals
+    - generic [ref=e55]:
+      - img [ref=e57]
+      - button "Open Tanstack query devtools" [ref=e105] [cursor=pointer]:
+        - img [ref=e106] [cursor=pointer]
+  - generic:
+    - region "Notifications-top"
+    - region "Notifications-top-left"
+    - region "Notifications-top-right"
+    - region "Notifications-bottom-left"
+    - region "Notifications-bottom"
+    - region "Notifications-bottom-right"
+```

@@ -1,0 +1,383 @@
+// MVP Schema for NoChickenLeftBehind
+// Focused on: Expiration tracking, Smart recipes, Meal planning
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ CORE MODELS ============
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relationships
+  recipes       Recipe[]
+  pantryItems   PantryItem[]
+  mealPlans     MealPlan[]
+  preferences   UserPreferences?
+  groceryItems  GroceryItem[]
+}
+
+// ============ INGREDIENT MASTER DATA ============
+
+model Ingredient {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  alternativeNames String[] // Different names for same ingredient
+  category         String   // protein, vegetable, dairy, grain, etc.
+  
+  // Nutritional Information (per 100g) - from USDA
+  calories         Float?
+  protein          Float?
+  carbs            Float?
+  fat              Float?
+  fiber            Float?
+  
+  // Storage & Expiration (in days)
+  shelfLifeCounter Int?     @default(7)    // Room temperature
+  shelfLifeFridge  Int?     @default(14)   // Refrigerated
+  shelfLifeFreezer Int?     @default(180)  // Frozen
+  
+  // Common units and conversions
+  defaultUnit      String?  @default("g")
+  gramsPerCup      Float?   // For volume to weight conversion
+  gramsPerUnit     Float?   // For items like "1 egg" = 50g
+  
+  // USDA Database Reference
+  usdaFoodId       String?  @unique
+  
+  // Relationships
+  pantryItems      PantryItem[]
+  recipeIngredients RecipeIngredient[]
+  substitutions    IngredientSubstitution[] @relation("OriginalIngredient")
+  substitutableFor IngredientSubstitution[] @relation("SubstituteIngredient")
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([name])
+  @@index([category])
+}
+
+model IngredientSubstitution {
+  id              String     @id @default(cuid())
+  originalId      String
+  substituteId    String
+  ratio           Float      @default(1.0) // 1.0 = 1:1 substitution
+  notes           String?    // "may affect texture", "adds sweetness", etc.
+  
+  original        Ingredient @relation("OriginalIngredient", fields: [originalId], references: [id])
+  substitute      Ingredient @relation("SubstituteIngredient", fields: [substituteId], references: [id])
+  
+  @@unique([originalId, substituteId])
+}
+
+// ============ PANTRY MANAGEMENT ============
+
+model PantryItem {
+  id              String    @id @default(cuid())
+  userId          String
+  ingredientId    String?
+  customName      String    // What user calls it
+  
+  // Quantity
+  amount          Float
+  unit            String
+  
+  // Location & Storage
+  location        PantryLocation @default(PANTRY)
+  container       String?   // "tupperware", "ziploc", etc.
+  
+  // Dates
+  purchaseDate    DateTime  @default(now())
+  expirationDate  DateTime? // Calculated or manually set
+  openedDate      DateTime? // When opened (affects expiration)
+  
+  // Leftover tracking
+  isLeftover      Boolean   @default(false)
+  leftoverFromId  String?   // Recipe ID if leftover
+  leftoverDate    DateTime? // When leftover was created
+  
+  // Cost tracking
+  purchasePrice   Float?
+  
+  // Relationships
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ingredient      Ingredient? @relation(fields: [ingredientId], references: [id])
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId, expirationDate])
+  @@index([userId, location])
+  @@index([userId, isLeftover])
+}
+
+enum PantryLocation {
+  FRIDGE
+  FREEZER
+  PANTRY
+  COUNTER
+  SPICE_RACK
+}
+
+// ============ RECIPES ============
+
+model Recipe {
+  id              String   @id @default(cuid())
+  userId          String?
+  name            String
+  description     String?
+  
+  // Time (in minutes)
+  prepTime        Int?
+  cookTime        Int?
+  totalTime       Int?
+  
+  // Metadata
+  servings        Int      @default(4)
+  difficulty      RecipeDifficulty @default(MEDIUM)
+  mealType        String[] // ["breakfast", "lunch", "dinner", "snack"]
+  cuisine         String?
+  imageUrl        String?
+  sourceUrl       String?
+  
+  // Nutritional rollup (per serving, calculated)
+  caloriesPerServing Float?
+  proteinPerServing  Float?
+  carbsPerServing    Float?
+  fatPerServing      Float?
+  
+  // Planning hints
+  goodForLeftovers   Boolean @default(true)
+  leftoverDays       Int?    @default(3)
+  freezable          Boolean @default(false)
+  
+  // Relationships
+  user            User?     @relation(fields: [userId], references: [id])
+  ingredients     RecipeIngredient[]
+  instructions    RecipeInstruction[]
+  plannedMeals    PlannedMeal[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([name])
+}
+
+enum RecipeDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model RecipeIngredient {
+  id           String     @id @default(cuid())
+  recipeId     String
+  ingredientId String?
+  
+  // What the recipe calls for
+  amount       Float?
+  unit         String?
+  preparation  String?    // "diced", "minced", etc.
+  optional     Boolean    @default(false)
+  groupName    String?    // "For the sauce", "For the marinade"
+  
+  // Original text (for display)
+  originalText String
+  
+  // Relationships
+  recipe       Recipe     @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient? @relation(fields: [ingredientId], references: [id])
+  
+  @@index([recipeId])
+}
+
+model RecipeInstruction {
+  id          String  @id @default(cuid())
+  recipeId    String
+  stepNumber  Int
+  instruction String
+  timeMinutes Int?    // Optional time for this step
+  
+  recipe      Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  
+  @@unique([recipeId, stepNumber])
+}
+
+// ============ MEAL PLANNING ============
+
+model MealPlan {
+  id            String   @id @default(cuid())
+  userId        String
+  weekStartDate DateTime
+  status        MealPlanStatus @default(DRAFT)
+  
+  // AI Generation metadata
+  generatedBy   String?  // "claude", "manual", "gpt4"
+  constraints   Json?    // User constraints for this plan
+  
+  // Relationships
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meals         PlannedMeal[]
+  shoppingList  ShoppingList?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([userId, weekStartDate])
+  @@index([userId, status])
+}
+
+enum MealPlanStatus {
+  DRAFT
+  APPROVED
+  ACTIVE
+  COMPLETED
+}
+
+model PlannedMeal {
+  id            String   @id @default(cuid())
+  mealPlanId    String
+  recipeId      String?
+  
+  // Scheduling
+  date          DateTime
+  mealType      MealType
+  
+  // Portions
+  servings      Int      @default(2)
+  
+  // Execution
+  isCooked      Boolean  @default(false)
+  cookedAt      DateTime?
+  skipped       Boolean  @default(false)
+  
+  // For eating out or simple meals
+  isEatingOut   Boolean  @default(false)
+  restaurantName String?
+  simpleMealName String?  // "Cereal", "Sandwiches", etc.
+  
+  // Leftover planning
+  expectLeftovers Boolean @default(false)
+  leftoverServings Int?
+  
+  // Relationships
+  mealPlan      MealPlan @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  recipe        Recipe?  @relation(fields: [recipeId], references: [id])
+  
+  @@index([mealPlanId, date])
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+}
+
+// ============ SHOPPING ============
+
+model ShoppingList {
+  id           String   @id @default(cuid())
+  mealPlanId   String?  @unique
+  userId       String
+  
+  status       ShoppingStatus @default(PENDING)
+  scheduledFor DateTime?
+  
+  // Relationships
+  mealPlan     MealPlan? @relation(fields: [mealPlanId], references: [id])
+  items        ShoppingItem[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum ShoppingStatus {
+  PENDING
+  SHOPPING
+  COMPLETED
+}
+
+model ShoppingItem {
+  id             String       @id @default(cuid())
+  shoppingListId String
+  ingredientId   String?
+  
+  name           String
+  amount         Float?
+  unit           String?
+  category       String?      // For store organization
+  
+  // Status
+  purchased      Boolean      @default(false)
+  price          Float?
+  
+  // Smart reordering
+  isStaple       Boolean      @default(false)
+  
+  shoppingList   ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
+  ingredient     Ingredient?  @relation(fields: [ingredientId], references: [id])
+  
+  @@index([shoppingListId])
+}
+
+// ============ SIMPLE GROCERY (existing) ============
+
+model GroceryItem {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  amount    String?
+  unit      String?
+  category  String?
+  completed Boolean  @default(false)
+  addedDate DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+}
+
+// ============ USER PREFERENCES ============
+
+model UserPreferences {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  
+  // Dietary
+  dietaryRestrictions String[] // ["vegetarian", "gluten-free"]
+  allergies           String[]
+  dislikedIngredients String[]
+  
+  // Cooking
+  maxCookTimeMinutes  Int      @default(45)
+  preferredCuisines   String[]
+  skillLevel          String   @default("intermediate")
+  
+  // Planning
+  planningMode        String   @default("assisted") // "assisted", "yolo", "manual"
+  servingsPerMeal     Int      @default(2)
+  includeLefotvers    Boolean  @default(true)
+  
+  // Shopping
+  weeklyBudget        Float?
+  preferredStores     String[]
+  
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
