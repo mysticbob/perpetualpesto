@@ -8,9 +8,12 @@
     "dev:client": "vite",
     "dev:server": "bun run server/index.ts",
     "dev:db": "docker-compose up -d",
+    "dev:redis": "docker-compose -f docker-compose.yml -f docker-compose.redis.yml up -d",
     "build": "tsc && vite build",
+    "build:analyze": "vite build --mode analyze",
     "preview": "vite preview",
     "start": "bun run server/index.ts",
+    "start:prod": "NODE_ENV=production bun run server/index.ts",
     "server": "bun run server/index.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -20,6 +23,7 @@
     "db:down": "docker-compose down",
     "db:reset": "docker-compose down -v && docker-compose up -d && bun run wait-for-db && bun run db:push",
     "db:optimize": "bun run scripts/optimize-db.ts",
+    "cache:clear": "bun run scripts/clear-cache.ts",
     "setup": "bun install && bun run db:up && bun run scripts/wait-for-db.ts && bun run db:push && bun run db:generate",
     "setup:fresh": "bun run db:reset && bun run db:push && bun run db:generate && bun run db:optimize",
     "test": "vitest",
@@ -55,7 +59,11 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5",
     "react-webcam": "^7.2.0",
-    "recharts": "^3.3.0"
+    "recharts": "^3.3.0",
+    "redis": "^4.7.0",
+    "ioredis": "^5.4.2",
+    "compression": "^1.7.4",
+    "lru-cache": "^11.0.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
@@ -75,6 +83,10 @@
     "prettier": "^3.5.1",
     "typescript": "^5.7.3",
     "vite": "^6.0.11",
-    "vitest": "^3.2.4"
+    "vite-plugin-compression": "^0.5.1",
+    "vite-plugin-pwa": "^0.21.2",
+    "rollup-plugin-visualizer": "^5.12.0",
+    "vitest": "^3.2.4",
+    "@types/compression": "^1.7.5"
   }
 }
