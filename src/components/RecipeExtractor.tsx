@@ -20,6 +20,7 @@ import { useState } from 'react'
 import { usePreferences } from '../contexts/PreferencesContext'
 import { useAuth } from '../contexts/AuthContext'
 import { formatIngredientAmount } from '../utils/units'
+import { buildUrl, API_ENDPOINTS, getFetchOptions } from '../config/api'
 
 interface ExtractedRecipe {
   name: string
@@ -61,11 +62,9 @@ export default function RecipeExtractor() {
 
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:3001/api/extract', {
+      const response = await fetch(buildUrl(API_ENDPOINTS.recipes.extract), {
+        ...getFetchOptions(),
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ url: url.trim() }),
       })
 
@@ -99,11 +98,9 @@ export default function RecipeExtractor() {
 
     setSaving(true)
     try {
-      const response = await fetch('http://localhost:3001/api/recipes', {
+      const response = await fetch(buildUrl(API_ENDPOINTS.recipes.create), {
+        ...getFetchOptions(),
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId: currentUser.uid,
           name: recipe.name,

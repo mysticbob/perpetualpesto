@@ -3,6 +3,7 @@ import { convertToCommonUnit } from '../utils/units'
 import { parseFraction } from '../utils/fractionParser'
 import { generateSamplePantryData, shouldShowStarterData } from '../utils/starterData'
 import { useAuth } from './AuthContext'
+import { buildUrl, API_ENDPOINTS, getFetchOptions } from '../config/api'
 
 export interface PantryItem {
   id: string
@@ -136,7 +137,7 @@ export function PantryProvider({ children }: { children: ReactNode }) {
   // Load user's pantry data from API
   const loadPantryData = async (userId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/pantry?userId=${userId}`)
+      const response = await fetch(`${buildUrl(API_ENDPOINTS.pantry.list)}?userId=${userId}`)
       if (response.ok) {
         const data = await response.json()
         setPantryData(data.locations || [])
@@ -159,11 +160,9 @@ export function PantryProvider({ children }: { children: ReactNode }) {
   // Save pantry data to API
   const savePantryData = async (userId: string, locations: PantryLocation[], depleted: DepletedItem[]) => {
     try {
-      await fetch('http://localhost:3001/api/pantry', {
+      await fetch(buildUrl(API_ENDPOINTS.pantry.add), {
+        ...getFetchOptions(),
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId,
           locations,

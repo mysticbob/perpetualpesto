@@ -28,6 +28,7 @@ import {
 import { SearchIcon, ChevronLeftIcon, ChevronRightIcon, DeleteIcon } from './icons/CustomIcons'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { buildUrl, API_ENDPOINTS } from '../config/api'
 
 interface Recipe {
   id: string
@@ -101,7 +102,7 @@ export default function RecipeList({ onRecipeSelect, selectedRecipeId, onLoadSam
         params.append('maxTime', timeFilter)
       }
 
-      const response = await fetch(`http://localhost:3001/api/recipes?${params}`)
+      const response = await fetch(`${buildUrl(API_ENDPOINTS.recipes.list)}?${params}`)
       if (response.ok) {
         const data: PaginatedResponse = await response.json()
         setRecipes(data.recipes)
@@ -147,7 +148,7 @@ export default function RecipeList({ onRecipeSelect, selectedRecipeId, onLoadSam
 
     setDeleting(true)
     try {
-      const response = await fetch(`http://localhost:3001/api/recipes/${recipeToDelete.id}`, {
+      const response = await fetch(buildUrl(API_ENDPOINTS.recipes.delete(recipeToDelete.id)), {
         method: 'DELETE',
       })
 

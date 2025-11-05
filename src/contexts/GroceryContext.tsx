@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { generateSampleGroceryData, shouldShowStarterData } from '../utils/starterData'
 import { parseAmount, formatAmount } from '../utils/amountParsing'
 import { useAuth } from './AuthContext'
+import { buildUrl, API_ENDPOINTS, getFetchOptions } from '../config/api'
 
 export interface GroceryItem {
   id: string
@@ -53,7 +54,7 @@ export const GroceryProvider = ({ children }: GroceryProviderProps) => {
   // Load user's grocery data from API
   const loadGroceryData = async (userId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/grocery?userId=${userId}`)
+      const response = await fetch(`${buildUrl(API_ENDPOINTS.groceries.list)}?userId=${userId}`)
       if (response.ok) {
         const data = await response.json()
         setGroceryItems(data.items || [])
@@ -75,11 +76,9 @@ export const GroceryProvider = ({ children }: GroceryProviderProps) => {
   // Save grocery data to API
   const saveGroceryData = async (userId: string, items: GroceryItem[]) => {
     try {
-      await fetch('http://localhost:3001/api/grocery', {
+      await fetch(buildUrl(API_ENDPOINTS.groceries.update), {
+        ...getFetchOptions(),
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId,
           items

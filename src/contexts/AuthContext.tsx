@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { 
+import {
   User,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -10,6 +10,7 @@ import {
   signInWithPopup
 } from 'firebase/auth'
 import { auth } from '../config/firebase'
+import { buildUrl, API_ENDPOINTS, getFetchOptions } from '../config/api'
 
 interface AuthContextType {
   currentUser: User | null
@@ -65,11 +66,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // If user is logged in, ensure they exist in our database
       if (user) {
         try {
-          await fetch('http://localhost:3001/api/users', {
+          await fetch(buildUrl(API_ENDPOINTS.users.create), {
+            ...getFetchOptions(),
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
               id: user.uid,
               email: user.email,

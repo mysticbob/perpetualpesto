@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { UnitSystem } from '../utils/units'
 import { useAuth } from './AuthContext'
+import { buildUrl, API_ENDPOINTS, getFetchOptions } from '../config/api'
 
 export type ThemeMode = 'automatic' | 'light' | 'dark'
 
@@ -34,7 +35,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   // Load user's preferences from API
   const loadPreferences = async (userId: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/preferences?userId=${userId}`)
+      const response = await fetch(`${buildUrl(API_ENDPOINTS.preferences.get)}?userId=${userId}`)
       if (response.ok) {
         const data = await response.json()
         setPreferences({ ...defaultPreferences, ...data })
@@ -54,11 +55,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   // Save preferences to API
   const savePreferences = async (userId: string, prefs: Preferences) => {
     try {
-      await fetch('http://localhost:3001/api/preferences', {
+      await fetch(buildUrl(API_ENDPOINTS.preferences.update), {
+        ...getFetchOptions(),
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           userId,
           ...prefs

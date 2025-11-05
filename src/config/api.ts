@@ -3,11 +3,11 @@
  * Single source of truth for all API endpoints and settings
  */
 
-const isDevelopment = process.env.NODE_ENV === 'development'
-const isTest = process.env.NODE_ENV === 'test'
+const isDevelopment = import.meta.env.MODE === 'development'
+const isTest = import.meta.env.MODE === 'test'
 
 export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003',
+  baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3001',
   timeout: 30000,
   retryAttempts: 3,
   retryDelay: 1000,
@@ -82,6 +82,26 @@ export const API_ENDPOINTS = {
     logout: '/api/auth/logout',
     signup: '/api/auth/signup',
     verify: '/api/auth/verify',
+  },
+
+  // User endpoints
+  users: {
+    create: '/api/users',
+    get: (id: string) => `/api/users/${id}`,
+    update: (id: string) => `/api/users/${id}`,
+  },
+
+  // Ratings endpoints
+  ratings: {
+    create: '/api/ratings',
+    get: (recipeId: string) => `/api/ratings/${recipeId}`,
+    update: (id: string) => `/api/ratings/${id}`,
+  },
+
+  // Preferences endpoints
+  preferences: {
+    get: '/api/preferences',
+    update: '/api/preferences',
   },
 } as const
 
