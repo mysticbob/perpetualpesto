@@ -2,22 +2,27 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getOpenAIService } from '../openai.service';
 import type { ChatMessage, VisionAnalysisRequest } from '../openai.service';
 
-// Mock OpenAI
+// Mock OpenAI client
+const mockOpenAIInstance = {
+  chat: {
+    completions: {
+      create: vi.fn(),
+    },
+  },
+  embeddings: {
+    create: vi.fn(),
+  },
+  moderations: {
+    create: vi.fn(),
+  },
+};
+
+const MockOpenAI = vi.fn().mockImplementation(() => mockOpenAIInstance);
+
+// Mock OpenAI module
 vi.mock('openai', () => {
   return {
-    default: vi.fn().mockImplementation(() => ({
-      chat: {
-        completions: {
-          create: vi.fn(),
-        },
-      },
-      embeddings: {
-        create: vi.fn(),
-      },
-      moderations: {
-        create: vi.fn(),
-      },
-    })),
+    default: MockOpenAI,
   };
 });
 
@@ -32,10 +37,8 @@ describe('OpenAIService', () => {
     // Get fresh service instance
     service = getOpenAIService();
 
-    // Access the mocked OpenAI client
-    const OpenAI = require('openai').default;
-    const clientInstance = new OpenAI();
-    mockCreate = clientInstance.chat.completions.create;
+    // Access the mocked chat completions create method
+    mockCreate = mockOpenAIInstance.chat.completions.create;
   });
 
   afterEach(() => {
@@ -225,9 +228,7 @@ describe('OpenAIService', () => {
         data: [{ embedding: mockEmbedding }],
       };
 
-      const OpenAI = require('openai').default;
-      const clientInstance = new OpenAI();
-      clientInstance.embeddings.create.mockResolvedValue(mockResponse);
+      mockOpenAIInstance.embeddings.create.mockResolvedValue(mockResponse);
 
       const result = await service.generateEmbedding('test text');
 
@@ -236,9 +237,7 @@ describe('OpenAIService', () => {
     });
 
     it('should handle embedding API errors', async () => {
-      const OpenAI = require('openai').default;
-      const clientInstance = new OpenAI();
-      clientInstance.embeddings.create.mockRejectedValue(new Error('API Error'));
+      mockOpenAIInstance.embeddings.create.mockRejectedValue(new Error('API Error'));
 
       await expect(service.generateEmbedding('test')).rejects.toThrow(
         'Failed to generate embedding'
@@ -252,9 +251,7 @@ describe('OpenAIService', () => {
         results: [{ flagged: false }],
       };
 
-      const OpenAI = require('openai').default;
-      const clientInstance = new OpenAI();
-      clientInstance.moderations.create.mockResolvedValue(mockResponse);
+      mockOpenAIInstance.moderations.create.mockResolvedValue(mockResponse);
 
       const result = await service.moderateContent('This is safe content');
 
@@ -266,9 +263,7 @@ describe('OpenAIService', () => {
         results: [{ flagged: true }],
       };
 
-      const OpenAI = require('openai').default;
-      const clientInstance = new OpenAI();
-      clientInstance.moderations.create.mockResolvedValue(mockResponse);
+      mockOpenAIInstance.moderations.create.mockResolvedValue(mockResponse);
 
       const result = await service.moderateContent('Inappropriate content');
 
@@ -276,9 +271,7 @@ describe('OpenAIService', () => {
     });
 
     it('should default to safe on moderation error', async () => {
-      const OpenAI = require('openai').default;
-      const clientInstance = new OpenAI();
-      clientInstance.moderations.create.mockRejectedValue(new Error('API Error'));
+      mockOpenAIInstance.moderations.create.mockRejectedValue(new Error('API Error'));
 
       const result = await service.moderateContent('test');
 
