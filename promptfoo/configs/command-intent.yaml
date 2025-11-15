@@ -1,0 +1,120 @@
+# Promptfoo configuration for command intent detection
+description: 'Test natural language command processing accuracy'
+
+providers:
+  - id: openai:gpt-4-turbo-preview
+    config:
+      temperature: 0.3  # Lower temperature for more consistent classification
+
+  - id: openai:gpt-3.5-turbo
+    config:
+      temperature: 0.3
+
+prompts:
+  - file://prompts/command-intent.txt
+
+tests:
+  - description: 'ADD_ITEM intent - explicit'
+    vars:
+      command: 'add 2 lbs chicken to the fridge'
+    assert:
+      - type: contains
+        value: 'ADD_ITEM'
+      - type: contains
+        value: 'chicken'
+      - type: contains
+        value: 'fridge'
+      - type: is-json
+
+  - description: 'ADD_ITEM intent - casual'
+    vars:
+      command: 'I bought some milk today'
+    assert:
+      - type: contains
+        value: 'ADD_ITEM'
+      - type: contains
+        value: 'milk'
+
+  - description: 'REMOVE_ITEM intent'
+    vars:
+      command: 'throw away the expired yogurt'
+    assert:
+      - type: contains
+        value: 'REMOVE_ITEM'
+      - type: contains
+        value: 'yogurt'
+
+  - description: 'MOVE_ITEM intent'
+    vars:
+      command: 'move chicken from fridge to freezer'
+    assert:
+      - type: contains
+        value: 'MOVE_ITEM'
+      - type: contains
+        value: 'chicken'
+      - type: contains
+        value: 'fridge'
+      - type: contains
+        value: 'freezer'
+
+  - description: 'CHECK_AVAILABILITY intent'
+    vars:
+      command: 'do I have enough milk?'
+    assert:
+      - type: contains
+        value: 'CHECK_AVAILABILITY'
+      - type: contains
+        value: 'milk'
+
+  - description: 'FIND_RECIPES intent'
+    vars:
+      command: 'what can I make with chicken and rice?'
+    assert:
+      - type: contains
+        value: 'FIND_RECIPES'
+      - type: contains
+        value: 'chicken'
+      - type: contains
+        value: 'rice'
+
+  - description: 'CHECK_EXPIRATION intent'
+    vars:
+      command: 'is my milk expired?'
+    assert:
+      - type: contains
+        value: 'CHECK_EXPIRATION'
+      - type: contains
+        value: 'milk'
+
+  - description: 'Multiple ingredients'
+    vars:
+      command: 'add 2 lbs chicken, 1 cup rice, and 3 tomatoes to pantry'
+    assert:
+      - type: contains
+        value: 'ADD_ITEM'
+      - type: contains
+        value: 'chicken'
+      - type: contains
+        value: 'rice'
+      - type: contains
+        value: 'tomatoes'
+
+  - description: 'Quantity parsing'
+    vars:
+      command: 'add 2.5 pounds of ground beef'
+    assert:
+      - type: contains
+        value: '2.5'
+      - type: contains-any
+        value: ['pound', 'lb']
+
+  - description: 'Ambiguous command'
+    vars:
+      command: 'chicken'
+    assert:
+      - type: javascript
+        value: |
+          const parsed = JSON.parse(output);
+          parsed.confidence < 0.7 || parsed.needsClarification === true
+
+outputPath: ./promptfoo/outputs/command-intent.json

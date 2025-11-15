@@ -1,0 +1,122 @@
+# Promptfoo configuration for recipe suggestion quality evaluation
+description: 'Test recipe suggestion accuracy and relevance'
+
+# Models to compare
+providers:
+  - id: openai:gpt-4-turbo-preview
+    config:
+      temperature: 0.7
+      max_tokens: 2000
+
+  - id: openai:gpt-4
+    config:
+      temperature: 0.7
+      max_tokens: 2000
+
+  - id: openai:gpt-3.5-turbo
+    config:
+      temperature: 0.7
+      max_tokens: 2000
+
+# Prompt template
+prompts:
+  - file://prompts/recipe-suggestion.txt
+
+# Test cases
+tests:
+  - description: 'Basic ingredient matching'
+    vars:
+      ingredients: 'chicken, rice, onions, garlic'
+      preferences: 'no dietary restrictions'
+      maxPrepTime: '60'
+    assert:
+      - type: contains
+        value: 'chicken'
+      - type: contains
+        value: 'rice'
+      - type: javascript
+        value: 'output.toLowerCase().includes("recipe") || output.toLowerCase().includes("dish")'
+      - type: json-schema
+        value:
+          type: object
+          required: ['recipes']
+          properties:
+            recipes:
+              type: array
+              minItems: 1
+
+  - description: 'Vegetarian preference'
+    vars:
+      ingredients: 'pasta, tomatoes, basil, mozzarella'
+      preferences: 'vegetarian'
+      maxPrepTime: '45'
+    assert:
+      - type: not-contains
+        value: 'chicken'
+      - type: not-contains
+        value: 'beef'
+      - type: not-contains
+        value: 'pork'
+      - type: not-contains
+        value: 'fish'
+      - type: contains-any
+        value: ['pasta', 'vegetarian']
+
+  - description: 'Vegan preference'
+    vars:
+      ingredients: 'tofu, rice, vegetables, soy sauce'
+      preferences: 'vegan'
+      maxPrepTime: '40'
+    assert:
+      - type: not-contains
+        value: 'cheese'
+      - type: not-contains
+        value: 'milk'
+      - type: not-contains
+        value: 'eggs'
+      - type: not-contains
+        value: 'butter'
+
+  - description: 'Limited ingredients (3)'
+    vars:
+      ingredients: 'eggs, bread, butter'
+      preferences: 'quick and easy'
+      maxPrepTime: '15'
+    assert:
+      - type: javascript
+        value: |
+          const recipes = JSON.parse(output).recipes || [];
+          recipes.length > 0 && recipes.every(r =>
+            !r.additionalIngredients || r.additionalIngredients.length <= 2
+          )
+
+  - description: 'Complex ingredient list'
+    vars:
+      ingredients: 'chicken breast, bell peppers, onions, garlic, ginger, soy sauce, rice vinegar, honey, sesame oil'
+      preferences: 'Asian cuisine'
+      maxPrepTime: '45'
+    assert:
+      - type: contains-any
+        value: ['stir fry', 'teriyaki', 'asian', 'chinese']
+      - type: javascript
+        value: 'output.length > 100'
+
+  - description: 'Time constraint (30 min)'
+    vars:
+      ingredients: 'pasta, tomato sauce, garlic, basil'
+      preferences: 'quick meal'
+      maxPrepTime: '30'
+    assert:
+      - type: javascript
+        value: |
+          const recipes = JSON.parse(output).recipes || [];
+          recipes.every(r => r.totalTime <= 30)
+
+# Default test configuration
+defaultTest:
+  options:
+    provider: openai:gpt-4-turbo-preview
+    temperature: 0.7
+
+# Output configuration
+outputPath: ./promptfoo/outputs/recipe-suggestions.json
