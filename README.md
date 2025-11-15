@@ -243,6 +243,35 @@ FIREBASE_AUTH_DOMAIN="your_project.firebaseapp.com"
 FIREBASE_PROJECT_ID="your_project_id"
 ```
 
+### Infisical Secrets Management (Recommended for Production)
+
+The application supports [Infisical](https://infisical.com) for centralized, secure secrets management. This is the recommended approach for production deployments.
+
+**Benefits:**
+- 🔐 Centralized secret management
+- 🌍 Environment-specific configurations (dev, staging, production)
+- 👥 Team collaboration and access control
+- 📝 Audit logging and version history
+- 🔄 Automatic secret rotation support
+
+**Setup:**
+1. Create an account at [infisical.com](https://infisical.com)
+2. Create a project and add your secrets
+3. Generate machine identity credentials
+4. Configure your `.env` file:
+
+```bash
+INFISICAL_CLIENT_ID="your_client_id"
+INFISICAL_CLIENT_SECRET="your_client_secret"
+INFISICAL_PROJECT_ID="your_project_id"
+INFISICAL_ENVIRONMENT="dev"
+```
+
+For detailed setup instructions, see [docs/INFISICAL_SETUP.md](docs/INFISICAL_SETUP.md)
+
+**Fallback Behavior:**
+If Infisical credentials are not configured, the application automatically falls back to using environment variables from your `.env` file.
+
 ## Recipe Extraction
 
 The app supports extracting recipes from most recipe websites using:
