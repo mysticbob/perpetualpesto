@@ -1,0 +1,23 @@
+# Dependencies
+node_modules
+bun.lockb
+package-lock.json
+
+# Build outputs
+dist
+build
+.next
+
+# Environment files
+.env*
+
+# Generated files
+prisma/migrations
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
