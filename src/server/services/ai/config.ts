@@ -1,3 +1,5 @@
+import { secretsManager, type AppSecrets } from '../../../../server/config/secrets';
+
 export interface AIConfig {
   openai: {
     apiKey: string;
@@ -27,6 +29,54 @@ export interface AIConfig {
   };
 }
 
+export function loadAIConfig(): AIConfig {
+  // Get secrets from the centralized secrets manager
+  let secrets: AppSecrets;
+  try {
+    secrets = secretsManager.getSecrets();
+  } catch (error) {
+    console.warn('[AI Config] Secrets not loaded yet, falling back to environment variables');
+    // Fallback to environment variables if secrets haven't been loaded yet
+    return loadAIConfigFromEnv();
+  }
+
+  const config: AIConfig = {
+    openai: {
+      apiKey: secrets.openai.apiKey,
+      organization: secrets.openai.orgId,
+    },
+    models: {
+      chat: secrets.ai.models.chat,
+      vision: secrets.ai.models.vision,
+      embedding: secrets.ai.models.embedding,
+    },
+    rateLimits: {
+      chat: {
+        maxRequests: secrets.ai.rateLimits.chat.maxRequests,
+        maxTokens: secrets.ai.rateLimits.chat.maxTokens,
+      },
+      vision: {
+        maxRequests: secrets.ai.rateLimits.vision.maxRequests,
+        maxTokens: secrets.ai.rateLimits.vision.maxTokens,
+      },
+    },
+    features: {
+      enabled: secrets.ai.features.enabled,
+      cacheEnabled: secrets.ai.features.cacheEnabled,
+      cacheTTL: secrets.ai.features.cacheTTL,
+      retryEnabled: secrets.ai.features.retryEnabled,
+      loggingEnabled: secrets.ai.features.loggingEnabled,
+    },
+  };
+
+  // Validate configuration
+  if (config.features.enabled && !config.openai.apiKey) {
+    console.warn('[AI Config] Warning: AI features enabled but OPENAI_API_KEY is not set');
+  }
+
+  return config;
+}
+
 function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
   if (value === undefined) return defaultValue;
   return value.toLowerCase() === 'true';
@@ -38,7 +88,8 @@ function parseNumber(value: string | undefined, defaultValue: number): number {
   return isNaN(parsed) ? defaultValue : parsed;
 }
 
-export function loadAIConfig(): AIConfig {
+// Fallback function for loading from environment variables
+function loadAIConfigFromEnv(): AIConfig {
   const config: AIConfig = {
     openai: {
       apiKey: process.env.OPENAI_API_KEY || '',
@@ -67,11 +118,6 @@ export function loadAIConfig(): AIConfig {
       loggingEnabled: parseBoolean(process.env.AI_LOGGING_ENABLED, true),
     },
   };
-
-  // Validate configuration
-  if (config.features.enabled && !config.openai.apiKey) {
-    console.warn('[AI Config] Warning: AI features enabled but OPENAI_API_KEY is not set');
-  }
 
   return config;
 }
