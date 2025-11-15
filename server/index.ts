@@ -12,11 +12,16 @@ import usersRoute from './routes/users'
 import aiRoute from '../src/server/routes/ai'
 import { prisma } from './lib/db'
 import { getSecrets, type AppSecrets } from './config/secrets'
+import { refreshAIConfig } from '../src/server/services/ai/config'
 
 // Main initialization function
 async function startServer() {
   // Load secrets before starting the server
   const secrets = await getSecrets()
+
+  // Refresh AI config to pick up Infisical secrets that are now in process.env
+  refreshAIConfig()
+  console.log('[Server] AI config refreshed with loaded secrets')
 
   const app = new Hono()
 

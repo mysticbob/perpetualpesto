@@ -74,8 +74,40 @@ jobs:
           bun run db:push
           bun run db:generate
 
+      - name: Start API server in background
+        run: |
+          bun run dev:server > server.log 2>&1 &
+          echo $! > server.pid
+        env:
+          PORT: 3003
+          NODE_ENV: test
+
+      - name: Wait for server to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:3003/health; do sleep 2; done' || {
+            echo "Server failed to start within timeout"
+            cat server.log || true
+            exit 1
+          }
+
       - name: Run integration tests
         run: bun run test:integration
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then
+            kill $(cat server.pid) || true
+            rm server.pid
+          fi
+
+      - name: Upload server logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-server-logs
+          path: server.log
+          retention-days: 7
 
   e2e-tests:
     name: E2E Tests
@@ -119,8 +151,17 @@ jobs:
           bun run db:push
           bun run db:generate
 
+      - name: Build frontend
+        run: bun run build
+        env:
+          NODE_ENV: production
+
       - name: Run E2E tests
         run: bun run test:e2e
+        env:
+          CI: true
+          NODE_ENV: test
+          PORT: 3003
 
       - name: Upload test results
         if: always()
