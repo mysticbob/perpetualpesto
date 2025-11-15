@@ -21,6 +21,7 @@ class AIService {
   private openAI = getOpenAIService();
   private config: AIServiceConfig;
   private cache = new Map<string, CacheEntry<any>>();
+  private cleanupInterval?: NodeJS.Timeout;
 
   constructor(config: Partial<AIServiceConfig> = {}) {
     this.config = {
@@ -34,7 +35,7 @@ class AIService {
 
     // Clean up cache periodically
     if (this.config.cacheEnabled) {
-      setInterval(() => this.cleanCache(), 60000); // Every minute
+      this.cleanupInterval = setInterval(() => this.cleanCache(), 60000); // Every minute
     }
   }
 
@@ -92,10 +93,10 @@ class AIService {
 
       return {
         response,
-        usage: this.config.enableRateLimiting 
+        usage: this.config.enableRateLimiting
           ? {
               tokensUsed: this.estimateTokens(messages),
-              remaining: (await chatRateLimiter.getUsage(userId))?.requests || 0,
+              remaining: chatRateLimiter.getUsage(userId)?.requests || 0,
             }
           : undefined,
       };
@@ -264,6 +265,15 @@ class AIService {
       cacheSize: JSON.stringify([...this.cache.entries()]).length,
       cacheEntries: this.cache.size,
     };
+  }
+
+  // Cleanup method to prevent memory leaks
+  destroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = undefined;
+    }
+    this.cache.clear();
   }
 }
 

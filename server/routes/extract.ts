@@ -97,7 +97,7 @@ function extractFromJsonLd($: cheerio.CheerioAPI): ExtractedRecipe | null {
             prepTime: parseTime(item.prepTime),
             cookTime: parseTime(item.cookTime),
             totalTime: parseTime(item.totalTime),
-            servings: parseInt(item.recipeYield) || undefined,
+            servings: parseInt(item.recipeYield, 10) || undefined,
             imageUrl,
             ingredients: (item.recipeIngredient || []).map((ing: string) => {
               const amount = parseExtractAmount(ing)
