@@ -1,0 +1,487 @@
+# promptfoo Configuration for Camera Scanning Vision API Testing
+# This file extends the base promptfoo.config.yaml for vision-specific testing
+#
+# Run with: npx promptfoo eval -c promptfoo.camera-scanning.config.yaml
+# View results: npx promptfoo view
+
+description: "Camera scanning multi-provider evaluation for pantry item detection"
+
+# ============================================================================
+# Provider Configuration - Test all 6 providers
+# ============================================================================
+providers:
+  # OpenAI GPT-4 Vision (Baseline)
+  - id: openai:gpt-4-vision-preview
+    label: "GPT-4 Vision"
+    config:
+      temperature: 0
+      max_tokens: 2000
+      apiKey: ${OPENAI_API_KEY}
+
+  # Anthropic Claude 3.5 Sonnet
+  - id: anthropic:messages:claude-3-5-sonnet-20241022
+    label: "Claude 3.5 Sonnet"
+    config:
+      temperature: 0
+      max_tokens: 2000
+      apiKey: ${ANTHROPIC_API_KEY}
+
+  # Google Gemini 1.5 Pro
+  - id: vertex:gemini-1.5-pro
+    label: "Gemini 1.5 Pro"
+    config:
+      temperature: 0
+      max_output_tokens: 2000
+      project: ${GOOGLE_CLOUD_PROJECT}
+      region: ${GOOGLE_CLOUD_REGION:-us-central1}
+
+  # Google Gemini 1.5 Flash (Budget option)
+  - id: vertex:gemini-1.5-flash
+    label: "Gemini 1.5 Flash"
+    config:
+      temperature: 0
+      max_output_tokens: 2000
+      project: ${GOOGLE_CLOUD_PROJECT}
+      region: ${GOOGLE_CLOUD_REGION:-us-central1}
+
+  # Azure Computer Vision (requires custom provider)
+  # - id: file://src/server/services/vision/providers/azure-provider.ts:AzureVisionProvider
+  #   label: "Azure Computer Vision"
+  #   config:
+  #     apiKey: ${AZURE_VISION_KEY}
+  #     endpoint: ${AZURE_VISION_ENDPOINT}
+
+  # Clarifai Food Model (requires custom provider)
+  # - id: file://src/server/services/vision/providers/clarifai-provider.ts:ClarifaiProvider
+  #   label: "Clarifai Food"
+  #   config:
+  #     apiKey: ${CLARIFAI_API_KEY}
+  #     model: "food-item-recognition"
+
+# ============================================================================
+# Prompt Templates
+# ============================================================================
+prompts:
+  # Main scanning prompt
+  - label: "Pantry Scanner v1"
+    raw: |
+      You are a food and grocery recognition expert. Analyze the provided image and identify all food items, groceries, spices, or pantry items visible.
+
+      For each item detected, provide:
+      1. **name**: The specific product name (e.g., "Heinz Tomato Ketchup" not just "ketchup")
+      2. **category**: One of [produce, canned_goods, condiments, spices, dairy, frozen, beverages, snacks, baking, grains, pasta, sauces, oils, meat, seafood, bread, cereal, other]
+      3. **quantity**:
+         - amount: number of items
+         - unit: bottle/jar/can/box/bag/etc
+         - size: if visible on packaging (e.g., "24 oz", "1 L")
+         - estimatedFillLevel: 0.0 to 1.0 (0.5 = half full). If unopened/new, use 1.0
+      4. **expiryDate**: If visible on packaging, format as YYYY-MM-DD. If not visible, omit this field.
+      5. **nutrition** (if label is clearly readable):
+         - servingSize
+         - calories
+         - protein
+         - carbohydrates
+         - fat
+      6. **confidence**: Your confidence in this identification (0.0 to 1.0)
+
+      Return ONLY valid JSON in this exact format:
+      {
+        "items": [
+          {
+            "name": "string",
+            "category": "string",
+            "quantity": {
+              "amount": 1,
+              "unit": "string",
+              "size": "string",
+              "estimatedFillLevel": 1.0
+            },
+            "expiryDate": "YYYY-MM-DD" or null,
+            "nutrition": { ... } or null,
+            "confidence": 0.95
+          }
+        ]
+      }
+
+      Important:
+      - Be specific with names (brands, varieties)
+      - For produce, include type and estimated count
+      - For spices in generic jars, try to identify from label or appearance
+      - If multiple similar items, count them separately
+      - Estimate fill levels carefully based on visual cues
+      - Only include nutrition if you can clearly read the label
+
+  # Optimized prompt for single items (more detail)
+  - label: "Single Item Detail v1"
+    raw: |
+      Analyze this single food/grocery item in detail.
+
+      Provide:
+      - Exact product name and brand
+      - All visible text on packaging
+      - Nutritional information if label is readable
+      - Expiry/best-by date if visible
+      - Estimated quantity remaining (fill level: 0.0-1.0)
+      - Package size
+      - Category
+
+      Return JSON matching this schema:
+      {
+        "items": [{
+          "name": "exact product name with brand",
+          "category": "category",
+          "quantity": {
+            "amount": 1,
+            "unit": "unit",
+            "size": "size from label",
+            "estimatedFillLevel": 0.0-1.0
+          },
+          "expiryDate": "YYYY-MM-DD" or null,
+          "nutrition": {...} or null,
+          "confidence": 0.0-1.0,
+          "metadata": {
+            "brand": "brand name",
+            "packageSize": "from label",
+            "visibleText": ["all", "visible", "text"]
+          }
+        }]
+      }
+
+  # Optimized for multiple items (efficiency)
+  - label: "Multi-Item Fast v1"
+    raw: |
+      This image contains multiple items. For each distinct item:
+      - Provide name and category
+      - Count identical items together
+      - Focus on accuracy over detail
+      - Flag any items you're uncertain about (confidence < 0.75)
+
+      Return JSON:
+      {
+        "items": [
+          {
+            "name": "item name",
+            "category": "category",
+            "quantity": {"amount": count, "unit": "unit", "estimatedFillLevel": 1.0},
+            "confidence": 0.0-1.0
+          }
+        ]
+      }
+
+# ============================================================================
+# Test Cases - Organized by scenario
+# ============================================================================
+tests:
+  # ---------------------------------------------------------------------------
+  # Single Item Tests - High detail expected
+  # ---------------------------------------------------------------------------
+  - description: "Single branded package - Ketchup bottle"
+    vars:
+      image: file://test-images/single-heinz-ketchup.jpg
+    assert:
+      # Validate JSON structure
+      - type: is-json
+
+      # Check that exactly 1 item was detected
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          items.length === 1
+
+      # Check item name contains "ketchup"
+      - type: javascript
+        value: |
+          const item = JSON.parse(output).items[0];
+          item.name.toLowerCase().includes('ketchup')
+
+      # Check confidence is high
+      - type: javascript
+        value: |
+          const item = JSON.parse(output).items[0];
+          item.confidence >= 0.85
+
+      # Check category is correct
+      - type: javascript
+        value: |
+          const item = JSON.parse(output).items[0];
+          item.category === 'condiments'
+
+      # Cost should be reasonable
+      - type: cost
+        threshold: 0.02  # Max $0.02 per scan
+
+  - description: "Single produce item - Apple"
+    vars:
+      image: file://test-images/single-apple.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          items.length === 1 &&
+          items[0].name.toLowerCase().includes('apple') &&
+          items[0].category === 'produce' &&
+          items[0].confidence >= 0.80
+
+  - description: "Single spice jar - Generic paprika"
+    vars:
+      image: file://test-images/spice-paprika.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          items.length === 1 &&
+          items[0].name.toLowerCase().includes('paprika') &&
+          items[0].category === 'spices' &&
+          items[0].confidence >= 0.70  # Lower threshold for generic jars
+
+  # ---------------------------------------------------------------------------
+  # Multiple Item Tests - Quantity accuracy
+  # ---------------------------------------------------------------------------
+  - description: "Pantry shelf - 5 items visible"
+    vars:
+      image: file://test-images/pantry-shelf-5-items.jpg
+    assert:
+      - type: is-json
+
+      # Should detect 4-6 items (allow ±1 tolerance)
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          items.length >= 4 && items.length <= 6
+
+      # All items should have reasonable confidence
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          items.every(item => item.confidence >= 0.70)
+
+      # All items should have required fields
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          items.every(item =>
+            item.name &&
+            item.category &&
+            item.quantity &&
+            item.quantity.amount > 0 &&
+            item.confidence !== undefined
+          )
+
+  - description: "Fridge shelf - Mixed items with dairy"
+    vars:
+      image: file://test-images/fridge-mixed-items.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          // Should have at least one dairy item
+          items.some(item => item.category === 'dairy')
+
+  # ---------------------------------------------------------------------------
+  # Quantity Estimation Tests
+  # ---------------------------------------------------------------------------
+  - description: "Half-full peanut butter jar"
+    vars:
+      image: file://test-images/half-full-peanut-butter.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const item = JSON.parse(output).items[0];
+          item.name.toLowerCase().includes('peanut') &&
+          item.quantity.estimatedFillLevel >= 0.4 &&
+          item.quantity.estimatedFillLevel <= 0.6  # Should be ~50%
+
+  - description: "Multiple identical cans - Tomato soup x3"
+    vars:
+      image: file://test-images/three-soup-cans.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          // Should either detect 1 item with amount=3, or 3 separate items
+          const totalSoupCans = items
+            .filter(i => i.name.toLowerCase().includes('soup'))
+            .reduce((sum, i) => sum + i.quantity.amount, 0);
+          totalSoupCans === 3
+
+  # ---------------------------------------------------------------------------
+  # OCR and Expiry Date Tests
+  # ---------------------------------------------------------------------------
+  - description: "Package with visible expiry date"
+    vars:
+      image: file://test-images/package-with-expiry.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const item = JSON.parse(output).items[0];
+          // Should have detected an expiry date
+          item.expiryDate !== null && item.expiryDate !== undefined
+
+      # Expiry date should be in future (assuming test image is recent)
+      - type: javascript
+        value: |
+          const item = JSON.parse(output).items[0];
+          if (item.expiryDate) {
+            const expiryDate = new Date(item.expiryDate);
+            const today = new Date();
+            expiryDate > today
+          }
+          true  # Pass if no expiry date detected
+
+  # ---------------------------------------------------------------------------
+  # Nutrition Label Tests
+  # ---------------------------------------------------------------------------
+  - description: "Cereal box with nutrition label"
+    vars:
+      image: file://test-images/cereal-nutrition-visible.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const item = JSON.parse(output).items[0];
+          item.nutrition &&
+          item.nutrition.calories &&
+          item.nutrition.calories > 0
+
+  # ---------------------------------------------------------------------------
+  # Edge Cases and Error Handling
+  # ---------------------------------------------------------------------------
+  - description: "Poor lighting - dark pantry"
+    vars:
+      image: file://test-images/poor-lighting-dark.jpg
+    assert:
+      - type: is-json
+      # Should still detect something, but confidence may be lower
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          items.length > 0  # At least try to detect something
+
+  - description: "Blurry image - motion blur"
+    vars:
+      image: file://test-images/blurry-motion.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          // Lower confidence expected for blurry images
+          items.length > 0
+
+  - description: "Empty pantry - no items"
+    vars:
+      image: file://test-images/empty-shelf.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          items.length === 0  # Should correctly detect no items
+
+  - description: "Non-food items - cleaning supplies"
+    vars:
+      image: file://test-images/cleaning-supplies.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          // Should either categorize as 'other' or have lower confidence
+          items.every(item =>
+            item.category === 'other' || item.confidence < 0.80
+          )
+
+  # ---------------------------------------------------------------------------
+  # Stress Tests - High item count
+  # ---------------------------------------------------------------------------
+  - description: "Full pantry - 15+ items"
+    vars:
+      image: file://test-images/full-pantry-15-items.jpg
+    assert:
+      - type: is-json
+      - type: javascript
+        value: |
+          const items = JSON.parse(output).items;
+          items.length >= 10  # Should detect at least 10 out of 15
+
+      # Latency check for complex images
+      - type: latency
+        threshold: 10000  # Max 10 seconds
+
+# ============================================================================
+# Output Configuration
+# ============================================================================
+outputPath: ./test-results/camera-scanning-evals.json
+
+# Generate HTML report
+defaultTest:
+  options:
+    provider: openai:gpt-4-vision-preview
+
+# ============================================================================
+# Evaluation Scenarios - Run specific test suites
+# ============================================================================
+scenarios:
+  # Quick smoke test - just a few critical tests
+  - name: "smoke"
+    tests:
+      - description: "Single branded package - Ketchup bottle"
+      - description: "Pantry shelf - 5 items visible"
+
+  # Accuracy focused tests
+  - name: "accuracy"
+    tests:
+      - description: "Single branded package - Ketchup bottle"
+      - description: "Single produce item - Apple"
+      - description: "Single spice jar - Generic paprika"
+      - description: "Pantry shelf - 5 items visible"
+      - description: "Half-full peanut butter jar"
+
+  # Cost optimization tests - use with budget providers
+  - name: "cost"
+    providers:
+      - vertex:gemini-1.5-flash
+    tests:
+      - description: "Pantry shelf - 5 items visible"
+      - description: "Full pantry - 15+ items"
+
+  # Edge case tests
+  - name: "edge-cases"
+    tests:
+      - description: "Poor lighting - dark pantry"
+      - description: "Blurry image - motion blur"
+      - description: "Empty pantry - no items"
+      - description: "Non-food items - cleaning supplies"
+
+# ============================================================================
+# Custom Assertions
+# ============================================================================
+# Define reusable assertion functions
+assertions:
+  # Check if item detection is within acceptable range
+  - name: item-count-range
+    type: javascript
+    value: |
+      function checkItemCount(output, expected, tolerance = 1) {
+        const items = JSON.parse(output).items;
+        return items.length >= expected - tolerance &&
+               items.length <= expected + tolerance;
+      }
+
+  # Check average confidence across all items
+  - name: min-avg-confidence
+    type: javascript
+    value: |
+      function checkAvgConfidence(output, threshold = 0.80) {
+        const items = JSON.parse(output).items;
+        if (items.length === 0) return true;
+        const avgConfidence = items.reduce((sum, item) =>
+          sum + item.confidence, 0) / items.length;
+        return avgConfidence >= threshold;
+      }

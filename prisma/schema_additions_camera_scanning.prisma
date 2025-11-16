@@ -1,0 +1,317 @@
+// ============================================================================
+// Camera Scanning Models - Add these to schema.prisma
+// ============================================================================
+// NOTE: This file contains the Prisma model definitions to add to your main
+// schema.prisma file. Merge these models into the main file.
+// ============================================================================
+
+enum ScanSessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ScanMode {
+  SNAPSHOT
+  CONTINUOUS
+}
+
+enum FeedbackType {
+  THUMBS_UP
+  THUMBS_DOWN
+  CORRECTION
+}
+
+enum EvaluationDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+// ============================================================================
+// 1. ScanSession - Track user scanning sessions
+// ============================================================================
+model ScanSession {
+  id       String            @id @default(cuid())
+  userId   String
+  mode     ScanMode
+  status   ScanSessionStatus @default(IN_PROGRESS)
+
+  // Aggregated metrics
+  totalImages          Int     @default(0)
+  totalItemsDetected   Int     @default(0)
+  totalItemsConfirmed  Int     @default(0)
+  totalCost            Decimal @default(0) @db.Decimal(10, 6)
+
+  // Timestamps
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Additional data
+  metadata Json?
+
+  // Relations
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scanResults      ScanResult[]
+  pantryItems      PantryItem[]
+  aiImageAnalyses  AIImageAnalysis[]
+
+  // Indexes
+  @@index([userId])
+  @@index([startedAt(sort: Desc)])
+  @@index([status])
+  @@map("scan_sessions")
+}
+
+// ============================================================================
+// 2. ScanResult - Individual scan results per image/frame
+// ============================================================================
+model ScanResult {
+  id        String  @id @default(cuid())
+  sessionId String
+  userId    String
+  provider  String // 'gpt-4-vision', 'claude-3.5-sonnet', 'gemini-1.5-pro', etc.
+
+  // Image metadata
+  imageHash String? // SHA-256 hash for deduplication
+  imageSize Int?    // in bytes
+
+  // Detection results
+  detectedItems Json    // Array of DetectedItem objects
+  rawResponse   Json?   // Full provider response for debugging
+  confidence    Decimal? @db.Decimal(3, 2) // 0.00 to 1.00
+
+  // Performance metrics
+  processingTimeMs Int?    // Response time in milliseconds
+  cost             Decimal? @db.Decimal(10, 6) // Cost for this single scan
+
+  // Status
+  error   String?
+  success Boolean  @default(true)
+
+  // Timestamps
+  scannedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  // Additional data
+  metadata Json?
+
+  // Relations
+  session          ScanSession       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pantryItems      PantryItem[]
+  feedback         ScanFeedback[]
+  evaluationResults EvaluationResult[]
+
+  // Indexes
+  @@index([sessionId])
+  @@index([userId])
+  @@index([provider])
+  @@index([scannedAt(sort: Desc)])
+  @@index([imageHash])
+  @@map("scan_results")
+}
+
+// ============================================================================
+// 3. ProviderPerformance - Aggregate metrics per provider
+// ============================================================================
+model ProviderPerformance {
+  id       String   @id @default(cuid())
+  provider String
+  userId   String?  // NULL for global metrics
+  period   String   // 'daily', 'weekly', 'monthly', 'all_time'
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  // Volume metrics
+  totalScans      Int @default(0)
+  successfulScans Int @default(0)
+  failedScans     Int @default(0)
+
+  // Accuracy metrics (based on user confirmations)
+  itemsDetected  Int     @default(0)
+  itemsConfirmed Int     @default(0)
+  itemsRejected  Int     @default(0)
+  itemsEdited    Int     @default(0)
+  accuracyRate   Decimal? @db.Decimal(5, 2) // Percentage
+
+  // Performance metrics
+  avgConfidence         Decimal? @db.Decimal(3, 2)
+  avgProcessingTimeMs   Int?
+  p50ProcessingTimeMs   Int?
+  p95ProcessingTimeMs   Int?
+  p99ProcessingTimeMs   Int?
+
+  // Cost metrics
+  totalCost       Decimal @default(0) @db.Decimal(10, 2)
+  avgCostPerScan  Decimal? @db.Decimal(10, 6)
+
+  // User satisfaction
+  thumbsUp         Int     @default(0)
+  thumbsDown       Int     @default(0)
+  satisfactionRate Decimal? @db.Decimal(5, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@unique([provider, userId, period, periodStart])
+  @@index([provider])
+  @@index([userId])
+  @@index([period, periodStart(sort: Desc)])
+  @@map("provider_performance")
+}
+
+// ============================================================================
+// 4. ScanEvaluation - Ground truth dataset for testing
+// ============================================================================
+model ScanEvaluation {
+  id          String                 @id @default(cuid())
+  datasetName String
+  imagePath   String
+  imageHash   String
+
+  // Ground truth data
+  groundTruth Json    // Array of known items with bounding boxes
+  difficulty  EvaluationDifficulty?
+  tags        String[] // ['single_item', 'multi_item', 'poor_lighting', 'produce', etc.]
+
+  // Metadata
+  createdBy String?
+  verified  Boolean  @default(false)
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  evaluationResults EvaluationResult[]
+
+  // Indexes
+  @@index([datasetName])
+  @@index([difficulty])
+  @@index([imageHash])
+  @@map("scan_evaluations")
+}
+
+// ============================================================================
+// 5. EvaluationResult - Results from running evaluations
+// ============================================================================
+model EvaluationResult {
+  id            String  @id @default(cuid())
+  evaluationId  String
+  provider      String
+  scanResultId  String?
+
+  // Comparison metrics
+  truePositives  Int     @default(0)
+  falsePositives Int     @default(0)
+  falseNegatives Int     @default(0)
+  precision      Decimal? @db.Decimal(5, 2)
+  recall         Decimal? @db.Decimal(5, 2)
+  f1Score        Decimal? @db.Decimal(5, 2)
+
+  // Item-level accuracy
+  itemsCorrect   Int     @default(0)
+  itemsIncorrect Int     @default(0)
+  itemAccuracy   Decimal? @db.Decimal(5, 2)
+
+  // Quantity estimation error
+  quantityMae Decimal? @db.Decimal(5, 2) // Mean absolute error
+
+  // Performance
+  processingTimeMs Int?
+  cost             Decimal? @db.Decimal(10, 6)
+
+  // Detailed results
+  itemMatches     Json? // Detailed match information
+  confusionMatrix Json?
+
+  evaluatedAt DateTime @default(now())
+  metadata    Json?
+
+  // Relations
+  evaluation ScanEvaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  scanResult ScanResult?    @relation(fields: [scanResultId], references: [id], onDelete: SetNull)
+
+  // Indexes
+  @@index([evaluationId])
+  @@index([provider])
+  @@index([evaluatedAt(sort: Desc)])
+  @@map("evaluation_results")
+}
+
+// ============================================================================
+// 6. ScanFeedback - User feedback on scan results
+// ============================================================================
+model ScanFeedback {
+  id           String       @id @default(cuid())
+  scanResultId String
+  userId       String
+  feedbackType FeedbackType
+  itemIndex    Int? // Which item in the scan result (NULL for overall feedback)
+
+  // Correction data (if feedbackType = 'CORRECTION')
+  incorrectValue Json? // What the AI detected
+  correctValue   Json? // What the user corrected it to
+
+  comment   String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  scanResult ScanResult @relation(fields: [scanResultId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes
+  @@index([scanResultId])
+  @@index([userId])
+  @@index([feedbackType])
+  @@index([createdAt(sort: Desc)])
+  @@map("scan_feedback")
+}
+
+// ============================================================================
+// 7. Update existing models - Add these fields to existing models
+// ============================================================================
+
+// Add to User model:
+// scanSessions        ScanSession[]
+// scanResults         ScanResult[]
+// providerPerformance ProviderPerformance[]
+// scanFeedback        ScanFeedback[]
+
+// Add to PantryItem model:
+// scanSessionId  String?
+// scanResultId   String?
+// scanConfidence Decimal? @db.Decimal(3, 2)
+// detectedName   String? // Original AI-detected name before user edits
+// wasEdited      Boolean @default(false)
+//
+// scanSession    ScanSession? @relation(fields: [scanSessionId], references: [id], onDelete: SetNull)
+// scanResult     ScanResult?  @relation(fields: [scanResultId], references: [id], onDelete: SetNull)
+//
+// @@index([scanSessionId])
+// @@index([scanResultId])
+
+// Add to AIImageAnalysis model:
+// provider         String   @default("gpt-4-vision")
+// processingTimeMs Int?
+// cost             Decimal? @db.Decimal(10, 6)
+// scanSessionId    String?
+//
+// scanSession      ScanSession? @relation(fields: [scanSessionId], references: [id], onDelete: SetNull)
+//
+// @@index([provider])
+// @@index([scanSessionId])
+
+// Add to UserPreferences model:
+// preferredScanProvider     String?
+// scanConfidenceThreshold   Decimal @default(0.75) @db.Decimal(3, 2)
+// enableDuplicateDetection  Boolean @default(true)
+// autoAddHighConfidence     Boolean @default(false)
