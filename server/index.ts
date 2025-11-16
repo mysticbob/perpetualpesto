@@ -10,6 +10,7 @@ import preferencesRoute from './routes/preferences'
 import usersRoute from './routes/users'
 // import sharingRoute from './routes/sharing'
 import aiRoute from '../src/server/routes/ai'
+import nutritionRoute from './routes/nutrition'
 import { prisma } from './lib/db'
 import { getSecrets, type AppSecrets } from './config/secrets'
 import { refreshAIConfig } from '../src/server/services/ai/config'
@@ -42,6 +43,7 @@ async function startServer() {
   app.route('/api/users', usersRoute)
   // app.route('/api/sharing', sharingRoute)
   app.route('/api/ai', aiRoute)
+  app.route('/api/nutrition', nutritionRoute)
 
   // Test endpoint
   app.get('/api/test', async (c) => {
