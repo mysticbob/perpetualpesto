@@ -86,6 +86,9 @@ Add all your application secrets to Infisical. Here's the list of required secre
 - `OPENAI_API_KEY`
 - `OPENAI_ORG_ID` (optional)
 
+**USDA FoodData Central Configuration:**
+- `USDA_API_KEY` (Get your free API key at: https://fdc.nal.usda.gov/api-key-signup.html)
+
 **AI Model Configuration:**
 - `AI_MODEL_CHAT`
 - `AI_MODEL_VISION`

@@ -82,6 +82,7 @@ model Recipe {
   ratings      RecipeRating[]
   mealPlans    MealPlan[]
   aiSuggestions AIRecipeSuggestion[]
+  nutrition    RecipeNutrition?
 
   // Performance indexes
   @@index([name]) // For recipe name searches
@@ -123,6 +124,9 @@ model Ingredient {
   order    Int
 
   recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  // Nutrition relation
+  nutritionMapping IngredientNutritionMapping?
 
   // Performance indexes
   @@index([recipeId, order]) // For ordered ingredient queries
@@ -516,4 +520,177 @@ model AIContextCache {
   @@index([userId])
   @@index([expiresAt])
   @@map("ai_context_cache")
+}
+
+// ============================================================================
+// NUTRITION MODELS
+// ============================================================================
+
+// Core USDA food database (cached from FoodData Central API)
+model NutritionFood {
+  id          String   @id @default(cuid())
+  fdcId       Int      @unique // USDA FoodData Central ID
+  description String   // "Onions, raw" or "Cheddar cheese"
+  foodCategory String? // "Vegetables", "Dairy", etc.
+  dataType    String   // "Foundation", "SR Legacy", "Branded"
+
+  // Serving info
+  servingSize      Float?  // 100
+  servingSizeUnit  String? // "g"
+  householdServing String? // "1 cup chopped"
+
+  // Brand info (for branded foods)
+  brandOwner String?
+  gtinUpc    String? @unique
+
+  // Metadata
+  lastSynced DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  // Relations
+  nutrients         NutritionNutrient[]
+  ingredientMappings IngredientNutritionMapping[]
+
+  @@index([description]) // For search
+  @@index([foodCategory])
+  @@index([dataType])
+  @@map("nutrition_foods")
+}
+
+// Individual nutrients for each food
+model NutritionNutrient {
+  id              String  @id @default(cuid())
+  nutritionFoodId String
+
+  nutrientId   Int    // USDA nutrient ID (e.g., 1003 = Protein)
+  nutrientName String // "Protein", "Vitamin C", etc.
+  amount       Float  // Numeric value
+  unitName     String // "g", "mg", "IU", "kcal"
+
+  nutritionFood NutritionFood @relation(fields: [nutritionFoodId], references: [id], onDelete: Cascade)
+
+  @@unique([nutritionFoodId, nutrientId])
+  @@index([nutritionFoodId])
+  @@map("nutrition_nutrients")
+}
+
+// Maps recipe ingredients to nutrition foods
+model IngredientNutritionMapping {
+  id           String   @id @default(cuid())
+  ingredientId String   @unique // One-to-one with Ingredient
+  foodId       String   // Maps to NutritionFood
+
+  // Confidence and validation
+  matchConfidence Float   @default(1.0) // 0.0-1.0
+  isManual        Boolean @default(false) // User manually selected
+  verifiedBy      String? // User ID who verified
+  verifiedAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ingredient Ingredient    @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  food       NutritionFood @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@index([foodId])
+  @@index([ingredientId])
+  @@map("ingredient_nutrition_mappings")
+}
+
+// Cached recipe nutrition calculations
+model RecipeNutrition {
+  id       String @id @default(cuid())
+  recipeId String @unique // One-to-one with Recipe
+
+  // Per-serving nutrition (comprehensive)
+  servingSize String? // "1 cup", "1 piece", etc.
+
+  // Macronutrients (required for FDA label)
+  calories         Float? // kcal
+  totalFat         Float? // grams
+  saturatedFat     Float? // grams
+  transFat         Float? // grams
+  polyunsaturatedFat Float? // grams
+  monounsaturatedFat Float? // grams
+  cholesterol      Float? // mg
+  sodium           Float? // mg
+  totalCarbs       Float? // grams
+  dietaryFiber     Float? // grams
+  totalSugars      Float? // grams
+  addedSugars      Float? // grams
+  sugarAlcohol     Float? // grams
+  protein          Float? // grams
+
+  // Vitamins (absolute amounts)
+  vitaminD         Float? // mcg
+  vitaminA         Float? // mcg
+  vitaminC         Float? // mg
+  vitaminE         Float? // mg
+  vitaminK         Float? // mcg
+  thiamin          Float? // mg
+  riboflavin       Float? // mg
+  niacin           Float? // mg
+  vitaminB6        Float? // mg
+  folate           Float? // mcg
+  vitaminB12       Float? // mcg
+  biotin           Float? // mcg
+  pantothenicAcid  Float? // mg
+
+  // Minerals
+  calcium          Float? // mg
+  iron             Float? // mg
+  magnesium        Float? // mg
+  phosphorus       Float? // mg
+  potassium        Float? // mg
+  zinc             Float? // mg
+  copper           Float? // mg
+  manganese        Float? // mg
+  selenium         Float? // mcg
+  chromium         Float? // mcg
+
+  // Calculation metadata
+  lastCalculated     DateTime @default(now())
+  calculationVersion String   @default("1.0") // For future updates
+  hasUnmappedIngredients Boolean @default(false)
+  unmappedCount      Int      @default(0)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
+  @@index([calories]) // For search by calories
+  @@index([protein]) // For search by protein
+  @@index([totalCarbs]) // For search by carbs
+  @@map("recipe_nutrition")
+}
+
+// Custom nutrition entries for foods not in USDA
+model CustomNutritionFood {
+  id          String   @id @default(cuid())
+  userId      String   // Who created this
+  name        String
+  description String?
+  category    String?
+
+  // Basic nutrition (user can fill in what they know)
+  servingSize     String
+  calories        Float?
+  protein         Float?
+  totalFat        Float?
+  saturatedFat    Float?
+  cholesterol     Float?
+  sodium          Float?
+  totalCarbs      Float?
+  dietaryFiber    Float?
+  totalSugars     Float?
+
+  // Optional extended nutrients (JSON for flexibility)
+  extendedNutrients Json? // For any additional nutrients
+
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([name])
+  @@map("custom_nutrition_foods")
 }
